@@ -9,7 +9,8 @@ SOURCES += \
     Grid.cpp \
     main.cpp \
     Robot.cpp \
-    Utils.cpp
+    Utils.cpp \
+    NAORobot.cpp
 
 OTHER_FILES += \
     CONTROLE.txt
@@ -19,7 +20,8 @@ HEADERS += \
     GlutClass.h \
     PioneerRobot.h \
     Robot.h \
-    Utils.h
+    Utils.h \
+    NAORobot.h
 
-INCLUDEPATH+=/usr/local/Aria/include
-LIBS+=-L/usr/local/Aria/lib -lAria -lpthread -lglut -ldl -lrt -lGL -lfreeimage
+INCLUDEPATH+=/usr/local/Aria/include /usr/local/naoqi/include
+LIBS+=-L/usr/local/Aria/lib -lAria -L/usr/local/naoqi/lib -lalproxies -lalvalue -lalcommon -lalerror -lalsoap -lalthread -lalmath -lqi -lrttools -lpthread -lglut -ldl -lrt -lGL -lfreeimage

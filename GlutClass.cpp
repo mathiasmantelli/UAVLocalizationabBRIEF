@@ -72,7 +72,7 @@ void GlutClass::process()
 
 void GlutClass::terminate()
 {
-    exit(0);
+    robot_->motionMode_ = ENDING;
 }
 
 void GlutClass::setRobot(Robot *r)
@@ -86,6 +86,10 @@ void GlutClass::setRobot(Robot *r)
 
 void GlutClass::render()
 {
+    if(robot_->isRunning() == false){
+        exit(0);
+    }
+
     int mapWidth = grid_->getMapWidth();
 
     int scale = grid_->getMapScale();

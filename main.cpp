@@ -4,6 +4,7 @@ using namespace std;
 
 #include "Robot.h"
 #include "PioneerRobot.h"
+#include "NAORobot.h"
 #include "GlutClass.h"
 
 ConnectionMode connectionMode;
@@ -72,7 +73,8 @@ int main(int argc, char* argv[])
 
     Robot* r;
     // r = new Robot();
-    r = new PioneerRobot();
+//    r = new PioneerRobot();
+    r = new NAORobot();
 
     pthread_t robotThread, glutThread;
     mutex = new pthread_mutex_t;

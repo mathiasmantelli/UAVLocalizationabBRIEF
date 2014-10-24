@@ -4,15 +4,18 @@ CFLAGS = -g -O2 -DDEBUG -fPIC -std=c++0x #-Wall
 ARIA_INCLUDE=-I/usr/local/Aria/include
 ARIA_LINK=-L/usr/local/Aria/lib -lAria -lpthread -ldl -lrt
 
-LFLAGS = $(ARIA_LINK) -lglut -lGL -lfreeimage
+AL_INCLUDE=-I/usr/local/naoqi/include
+AL_LINK=-L/usr/local/naoqi/lib -lalproxies -lalvalue -lalcommon -lalerror -lalsoap -lalthread -lalmath -lqi -lrttools
 
-OBJS = Utils.o Grid.o  GlutClass.o Robot.o PioneerRobot.o main.o
+LFLAGS = $(ARIA_LINK) $(AL_LINK) -lglut -lGL -lfreeimage
+
+OBJS = Utils.o Grid.o  GlutClass.o Robot.o NAORobot.o PioneerRobot.o main.o
 
 EXEC = programa
 
 %.o: %.cpp $(DEPS)
 	@echo "Compilando $@"
-	@$(CXX) $(CFLAGS) $(ARIA_INCLUDE) -c $< -o $@
+	@$(CXX) $(CFLAGS) $(ARIA_INCLUDE) $(AL_INCLUDE) -c $< -o $@
 
 $(EXEC): $(OBJS)
 	@echo "\nLinkando $(EXEC)\n"

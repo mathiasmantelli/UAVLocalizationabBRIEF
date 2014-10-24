@@ -12,8 +12,11 @@ using namespace std;
 
 Robot::Robot()
 {
-    ready = false;
-    running = true;
+    ready_ = false;
+    running_ = true;
+
+    grid = new Grid();
+
 }
 
 Robot::~Robot()
@@ -28,8 +31,8 @@ Robot::~Robot()
 void Robot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 {
     // initialize logfile
-    logMode = lmode;
-    logFile = new LogFile(logMode,fname);
+    logMode_ = lmode;
+    logFile_ = new LogFile(logMode_,fname);
 }
 
 void Robot::run()
@@ -109,12 +112,12 @@ void Robot::draw(double xRobot, double yRobot, double angRobot)
 
 bool Robot::isReady()
 {
-    return ready;
+    return ready_;
 }
 
 bool Robot::isRunning()
 {
-    return running;
+    return running_;
 }
 
 const Pose& Robot::getTruePose()
@@ -136,16 +139,16 @@ void Robot::drawPath()
 {
     double scale = grid->getMapScale();
 
-    if(path.size() > 1){
+    if(path_.size() > 1){
         glScalef(scale,scale,scale);
         glLineWidth(3);
         glBegin( GL_LINE_STRIP );
         {
-            for(unsigned int i=0;i<path.size()-1; i++){
+            for(unsigned int i=0;i<path_.size()-1; i++){
                 glColor3f(1.0,0.0,1.0);
 
-                glVertex2f(path[i].x, path[i].y);
-                glVertex2f(path[i+1].x, path[i+1].y);
+                glVertex2f(path_[i].x, path_[i].y);
+                glVertex2f(path_[i+1].x, path_[i+1].y);
             }
         }
         glEnd();

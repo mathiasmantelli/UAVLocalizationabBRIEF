@@ -8,8 +8,6 @@
 
 PioneerRobot::PioneerRobot() : Robot()
 {
-    ready = false;
-
     // reset robot position in simulator
     resetSimPose_ = true;
 
@@ -28,8 +26,6 @@ PioneerRobot::PioneerRobot() : Robot()
 
     // wheels' velocities
     vLeft_ = vRight_ = 0.0;
-
-    grid = new Grid();
 
     doWallThickening=false;
     minX_=minY_=INT_MAX;
@@ -62,7 +58,7 @@ void PioneerRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 {
     Robot::initialize(cmode,lmode,fname);
 
-    if(logMode!=PLAYBACK){
+    if(logMode_!=PLAYBACK){
 
         int argc=0; char** argv;
 
@@ -182,12 +178,12 @@ void PioneerRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
         }
     }
 
-    ready = true;
+    ready_ = true;
 }
 
 void PioneerRobot::run()
 {
-    if(logMode==PLAYBACK){
+    if(logMode_==PLAYBACK){
         bool hasEnded = readFromLog();
         if(hasEnded){
             cout << "PROCESS COMPLETE. CLOSING PROGRAM." << endl;
@@ -195,7 +191,7 @@ void PioneerRobot::run()
         }
     }else{
         readOdometryAndSensors();
-        if(logMode==RECORDING)
+        if(logMode_==RECORDING)
             writeOnLog();
     }
 
@@ -203,8 +199,8 @@ void PioneerRobot::run()
     updateGridUsingHIMM();
 
     // Save path traversed by the robot
-    if(isMoving() || logMode==PLAYBACK){
-        path.push_back(odometry_);
+    if(isMoving() || logMode_==PLAYBACK){
+        path_.push_back(odometry_);
     }
 
     // Navigation
@@ -529,7 +525,7 @@ void PioneerRobot::readOdometryAndSensors()
 
     if(!readings->empty()){
         p = (*it).getPoseTaken();
-        ready = true;
+        ready_ = true;
     }
     else{
         sick_.unlockDevice();
@@ -589,21 +585,21 @@ const vector<float>& PioneerRobot::getSonarReadings()
 // This allows us to later play back the exact run.
 void PioneerRobot::writeOnLog()
 {
-    logFile->writePose("Odometry",odometry_);
-    logFile->writeSensors("Sonar",sonars_);
-    logFile->writeSensors("Laser",lasers_);
+    logFile_->writePose("Odometry",odometry_);
+    logFile_->writeSensors("Sonar",sonars_);
+    logFile_->writeSensors("Laser",lasers_);
 }
 
 // Reads back into the sensor data structures the raw readings that were stored to file
 // While there is still information in the file, it will return 0. When it reaches the end of the file, it will return 1.
 bool PioneerRobot::readFromLog() {
 
-    if(logFile->hasEnded())
+    if(logFile_->hasEnded())
         return true;
 
-    odometry_ = logFile->readPose("Odometry");
-    sonars_ = logFile->readSensors("Sonar");
-    lasers_ = logFile->readSensors("Laser");
+    odometry_ = logFile_->readPose("Odometry");
+    sonars_ = logFile_->readSensors("Sonar");
+    lasers_ = logFile_->readSensors("Laser");
 
     return false;
 }
