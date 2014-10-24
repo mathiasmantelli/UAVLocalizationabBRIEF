@@ -24,4 +24,4 @@ HEADERS += \
     NAORobot.h
 
 INCLUDEPATH+=/usr/local/Aria/include /usr/local/naoqi/include
-LIBS+=-L/usr/local/Aria/lib -lAria -L/usr/local/naoqi/lib -lalproxies -lalvalue -lalcommon -lalerror -lalsoap -lalthread -lalmath -lqi -lrttools -lpthread -lglut -ldl -lrt -lGL -lfreeimage
+LIBS+=-L/usr/local/Aria/lib -lAria -L/usr/local/naoqi/lib -lalproxies -lalvalue -lalcommon -lalerror -lalsoap -ltinyxml -lalthread -lalmath -lqi -lrttools -lpthread -lglut -ldl -lrt -lGL -lfreeimage
