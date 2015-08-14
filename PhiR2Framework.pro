@@ -10,7 +10,11 @@ SOURCES += \
     main.cpp \
     Robot.cpp \
     Utils.cpp \
-    NAORobot.cpp
+    Mcl.cpp \
+    DroneRobot.cpp \
+    MapGrid.cpp \
+    Kernel.cpp \
+    SomeKernels.cpp
 
 OTHER_FILES += \
     CONTROLE.txt
@@ -21,7 +25,12 @@ HEADERS += \
     PioneerRobot.h \
     Robot.h \
     Utils.h \
-    NAORobot.h
+    Mcl.h \
+    DroneRobot.h \
+    MapGrid.h \
+    Heuristic.h \
+    Kernel.h \
+    SomeKernels.h
 
-INCLUDEPATH+=/usr/local/Aria/include /usr/local/naoqi/include
-LIBS+=-L/usr/local/Aria/lib -lAria -L/usr/local/naoqi/lib -lalproxies -lalvalue -lalcommon -lalerror -lalsoap -ltinyxml -lalthread -lalmath -lqi -lrttools -lpthread -lglut -ldl -lrt -lGL -lfreeimage
+INCLUDEPATH+=/usr/local/Aria/include
+LIBS+=-L/usr/local/lib -L/usr/local/Aria/lib -lAria -lpthread -lglut -lGLEW -ldl -lrt -lGL -lfreeimage `pkg-config opencv --libs`

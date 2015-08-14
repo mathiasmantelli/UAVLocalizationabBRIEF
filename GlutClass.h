@@ -1,8 +1,15 @@
 #ifndef __GLUTCLASS_H__
 #define __GLUTCLASS_H__
 
+class GlutClass;
+
 #include "Robot.h"
 #include "Utils.h"
+
+#include <GL/glew.h>
+#include <GL/glut.h>
+#include <opencv2/core/core.hpp>
+using namespace cv;
 
 class GlutClass
 {
@@ -46,6 +53,6 @@ class GlutClass
         static void specialKeys(int key, int x, int y);
 };
 
+GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter);
+
 #endif /* __GLUT_H__ */
-
-

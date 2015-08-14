@@ -1,10 +1,11 @@
 #include <pthread.h>
 #include <iostream>
+#include <string.h>
 using namespace std;
 
 #include "Robot.h"
-#include "PioneerRobot.h"
-#include "NAORobot.h"
+//#include "PioneerRobot.h"
+#include "DroneRobot.h"
 #include "GlutClass.h"
 
 ConnectionMode connectionMode;
@@ -40,6 +41,10 @@ void* startGlutThread (void* ref)
 
 int main(int argc, char* argv[])
 {
+    /// comando: sim -p "../Dataset/Dia ensolarado"
+    /// mosaico é globalmap.jpg
+    /// lista das imagens, em ordem, no arquivo input.txt
+
     connectionMode = SIMULATION;
     logMode = NONE;
     filename = "";
@@ -74,7 +79,7 @@ int main(int argc, char* argv[])
     Robot* r;
     // r = new Robot();
 //    r = new PioneerRobot();
-    r = new NAORobot();
+    r = new DroneRobot();
 
     pthread_t robotThread, glutThread;
     mutex = new pthread_mutex_t;

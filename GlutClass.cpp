@@ -1,4 +1,3 @@
-#include <GL/glut.h>
 #include <FreeImage.h>
 #include <iomanip>
 #include <sstream>
@@ -54,6 +53,12 @@ void GlutClass::initialize()
     drawRobotPath = true;
     frame = 0;
 
+    glEnable(GL_TEXTURE_2D);
+    // Convert image and depth data to OpenGL textures
+    robot_->mcLocalization->imageTex = matToTexture(robot_->mcLocalization->globalMap, GL_LINEAR, GL_LINEAR, GL_CLAMP);
+    glDisable(GL_TEXTURE_2D);
+
+
     timer.startCounting();
 
     glClearColor (1.0, 1.0, 1.0, 0.0);
@@ -73,6 +78,7 @@ void GlutClass::process()
 void GlutClass::terminate()
 {
     robot_->motionMode_ = ENDING;
+    cout << "Ending." << endl;
 }
 
 void GlutClass::setRobot(Robot *r)
@@ -89,6 +95,9 @@ void GlutClass::render()
     if(robot_->isRunning() == false){
         exit(0);
     }
+
+    robot_->mcLocalization->draw(x_aux,y_aux,halfWindowSize);
+    return;
 
     int mapWidth = grid_->getMapWidth();
 
@@ -339,3 +348,75 @@ void GlutClass::specialKeys(int key, int x, int y)
     }
 }
 
+// Function turn a cv::Mat into a texture, and return the texture ID as a GLuint for use
+GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter)
+{
+    glEnable(GL_TEXTURE_2D);
+
+    // Generate a number for our textureID's unique handle
+    GLuint textureID=0;
+    glGenTextures(1, &textureID);
+
+    // Bind to our texture handle
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    // Catch silly-mistake texture interpolation method for magnification
+    if (magFilter == GL_LINEAR_MIPMAP_LINEAR  ||
+        magFilter == GL_LINEAR_MIPMAP_NEAREST ||
+        magFilter == GL_NEAREST_MIPMAP_LINEAR ||
+        magFilter == GL_NEAREST_MIPMAP_NEAREST)
+    {
+        cout << "You can't use MIPMAPs for magnification - setting filter to GL_LINEAR" << endl;
+        magFilter = GL_LINEAR;
+    }
+
+    // Set texture interpolation methods for minification and magnification
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Set texture clamping method
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+    // Set incoming texture format to:
+    // GL_BGR       for CV_CAP_OPENNI_BGR_IMAGE,
+    // GL_LUMINANCE for CV_CAP_OPENNI_DISPARITY_MAP,
+    // Work out other mappings as required ( there's a list in comments in main() )
+    GLenum inputColourFormat = GL_BGR;
+    if (mat.channels() == 1)
+    {
+        inputColourFormat = GL_LUMINANCE;
+    }
+
+    Mat flipped;
+    flip(mat,flipped,1);
+
+    //use fast 4-byte alignment (default anyway) if possible
+//    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+//    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+    //set length of one complete row in data (doesn't need to equal image.cols)
+//    glPixelStorei(GL_UNPACK_ROW_LENGTH, flipped.step/flipped.elemSize());
+
+    // Create the texture
+    glTexImage2D(GL_TEXTURE_2D,     // Type of texture
+                 0,                 // Pyramid level (for mip-mapping) - 0 is the top level
+                 GL_RGB,            // Internal colour format to convert to
+                 flipped.cols,          // Image width  i.e. 640 for Kinect in standard mode
+                 flipped.rows,          // Image height i.e. 480 for Kinect in standard mode
+                 0,                 // Border width in pixels (can either be 1 or 0)
+                 inputColourFormat, // Input image format (i.e. GL_RGB, GL_RGBA, GL_BGR etc.)
+                 GL_UNSIGNED_BYTE,  // Image data type
+                 flipped.ptr());        // The actual image data itself
+
+//    // If we're using mipmaps then generate them. Note: This requires OpenGL 3.0 or higher
+//    if (minFilter == GL_LINEAR_MIPMAP_LINEAR  ||
+//        minFilter == GL_LINEAR_MIPMAP_NEAREST ||
+//        minFilter == GL_NEAREST_MIPMAP_LINEAR ||
+//        minFilter == GL_NEAREST_MIPMAP_NEAREST)
+//    {
+//        glGenerateMipmap(GL_TEXTURE_2D);
+//    }
+
+    return textureID;
+}

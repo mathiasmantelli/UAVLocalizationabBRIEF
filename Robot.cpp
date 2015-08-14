@@ -38,6 +38,17 @@ void Robot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 void Robot::run()
 {
     cout << "RUNNING BASE ROBOT" << endl;
+
+    // Navigation
+    switch(motionMode_){
+        case ENDING:
+            cout << "Ending program" << endl;
+            exit(0);
+            break;
+        default:
+            break;
+    }
+
 }
 
 void Robot::move(MovingDirection dir)
@@ -57,6 +68,7 @@ void Robot::move(MovingDirection dir)
             break;
         case STOP:
             cout << "stopping robot" << endl;
+            break;
     }
 }
 

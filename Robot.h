@@ -1,11 +1,14 @@
 #ifndef ROBOT_H
 #define ROBOT_H
 
+class Robot;
+
 #include <vector>
 using namespace std;
 
 #include "Grid.h"
 #include "Utils.h"
+#include "Mcl.h"
 
 enum MotionMode {MANUAL, WANDER, FOLLOWWALL, ENDING};
 enum MovingDirection {STOP, FRONT, BACK, LEFT, RIGHT};
@@ -34,6 +37,8 @@ public:
 
     Grid* grid;
     MotionMode motionMode_;
+
+    MCL* mcLocalization;
 
 protected:
     Pose odometry_;
