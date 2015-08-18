@@ -21,7 +21,7 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<MapGrid *> completeDensityMaps, Mat &globalMap, string technique);
+        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, string technique);
         ~MCL();
 
         void draw(int x_aux, int y_aux, int halfWindowSize);
@@ -30,7 +30,7 @@ class MCL
 
         bool run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
-        Mat globalMap;
+        vector<Mat>& globalMaps;
         GLuint imageTex;
 
     private:
@@ -43,7 +43,7 @@ class MCL
         string locTechnique;
 
         MapGrid* realMap;
-        vector<MapGrid*> densityMaps;
+        vector<MapGrid*>& densityMaps;
 
         void sampling(Pose &u);
 
@@ -58,7 +58,7 @@ class MCL
         double computeAngleError(double trueTh, double particleTh);
         double sumAngles(double a, double b);
 
-        Mat getParticleObservation(Pose p, Size2f s);
+        Mat getParticleObservation(Pose p, Size2f s, int globalMapID);
         double evaluateParticleUsingSSD(Mat& z_robot, Mat& z_particle);
 
         // Static stuff used for image matching

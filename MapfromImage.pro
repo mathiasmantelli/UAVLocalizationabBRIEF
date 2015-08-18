@@ -1,0 +1,49 @@
+#-------------------------------------------------
+#
+# Project created by QtCreator 2015-08-05T14:42:58
+#
+#-------------------------------------------------
+
+#QT       += core
+
+#QT       -= gui
+
+TARGET = MapfromImage
+CONFIG   += console
+CONFIG   -= app_bundle
+
+TEMPLATE = app
+
+
+SOURCES += \
+    ColorCPU.cpp \
+    Kernel.cpp \
+    SomeKernels.cpp \
+    vec2.cpp \
+    vec3.cpp \
+    vec4.cpp \
+    ckdemap.cpp \
+    angleutil.cpp \
+    densityheuristic.cpp \
+    MapGrid.cpp \
+    mainMap.cpp
+
+HEADERS += \
+    ColorCPU.h \
+    Kernel.h \
+    mat3x3.h \
+    SomeKernels.h \
+    vec2.h \
+    vec3.h \
+    vec4.h \
+    ckdemap.h \
+    RadiusVolumeTransferFunctions.h \
+    angleutil.h \
+    Heuristic.h \
+    densityheuristic.h \
+    MapGrid.h
+
+INCLUDEPATH += -I/usr/local/include/opencv2
+
+
+LIBS += `pkg-config opencv --libs`

@@ -2,53 +2,27 @@
 #include <float.h>
 #include <math.h>
 
-#include "Utils.h"
+#include "angleutil.h"
 #include "SomeKernels.h"
 #include "MapGrid.h"
 
-MapGrid::MapGrid(FILE *mapFile, Heuristic *heuristic) : heuristic(heuristic)
+MapGrid::MapGrid(Mat *image, Mat* map, Heuristic *heuristic) : heuristic(heuristic)
 {
-    // Read dimensions.
-    fscanf(mapFile, "%d %d\n", &width, &height);
-    cells = new occupancyValues[width*height];
+    // initialize heuristic values
+    width = image->cols;
+    height = image->rows;
     heuristicValues = new double[width*height];
-    
-    // Read grid from file.
-    char read;
-    for(int hI=0; hI < height; hI++)
-    {
-        for(int wI=0; wI < width; wI++)
-        {
-            fscanf(mapFile,"%c ",&read);
-            switch(read)
-            {
-                case '1':
-                    cells[hI*width + wI] = CELL_OBSTACLE;
-                    break;
-                case '0':
-                    cells[hI*width + wI] = CELL_FREE;
-                    break;
-                case '-':
-                    cells[hI*width + wI] = CELL_UNKNOWN;
-                    break;
-            }
-        }
-        fscanf(mapFile,"\n");
-    }
-    fclose(mapFile);
+
+    // Initialize all cells with undefined values.
+    for(int w=0; w<width; ++w)
+         for(int h=0; h<height; ++h)
+            heuristicValues[h*width + w] = HEURISTIC_UNDEFINED;
     
     // Calculate heuristic for all cells.
-    for(int hI=height-1; hI>=0; hI--)
-    {
-         for(int wI=0; wI < width; wI++)
-        {
-            heuristicValues[hI*width + wI] = heuristic->calculateValue(
-                                                                        wI,
-                                                                        hI,
-                                                                        this); 
-        }
-    }
-    
+    for(int w=radius+1; w<width-radius-1; ++w)
+        for(int h=radius+1; h<height-radius-1; ++h)
+            heuristicValues[h*width + w] = heuristic->calculateValue(w, h, image, map);
+
     // Calculate bounds based on values.
     floorValue = DBL_MAX;
     ceilValue = -DBL_MAX;
@@ -218,14 +192,14 @@ bool MapGrid::isGradientReliable(int x, int y)
     return reliableGradients[y*width + x];
 }
 
-void MapGrid::calculateHeuristicFor(int x, int y)
+void MapGrid::calculateHeuristicFor(int x, int y, Mat* image, Mat* map)
 {
-    heuristicValues[y*width + x] = heuristic->calculateValue(x,y,this);
+    heuristicValues[y*width + x] = heuristic->calculateValue(x,y,image,map);
 }
 
-double MapGrid::calculateGradientFor(int x, int y)
+double MapGrid::calculateGradientFor(int x, int y, Mat* image, Mat* map)
 {
-    return heuristic->calculateGradientOrientation(x,y,this);
+    return heuristic->calculateGradientOrientation(x,y,image,map);
 }
 
 double MapGrid::calculateOrientation(int x, int y)
@@ -301,6 +275,7 @@ double MapGrid::calculateSobelOrientation(int x, int y)
 
     if(fabs(dy) < 0.00001 && fabs(dx) < 0.00001)
         return HEURISTIC_UNDEFINED;
+
     return atan2(dy, dx);
 }
 
@@ -319,7 +294,7 @@ bool MapGrid::checkGrad(int x, int y)
         if(IS_UNDEF(gN))
             return false;
 
-        if(acos(cos(gC)*cos(gN) + sin(gC)*sin(gN)) > DEG2RAD(30.0))
+        if(acos(cos(gC)*cos(gN) + sin(gC)*sin(gN)) > DEG2RAD(45.0))
             return false;
     }
 

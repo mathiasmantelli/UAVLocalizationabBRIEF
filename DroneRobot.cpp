@@ -1,5 +1,7 @@
 #include "DroneRobot.h"
 
+#include "SomeKernels.h"
+
 #include <unistd.h>
 #include <fstream>
 
@@ -11,25 +13,99 @@ DroneRobot::DroneRobot()
 
 }
 
+DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristicType* > &heuristicTypes)
+{
+    // Read fullMap
+    Mat originalMap = imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
+    if(! originalMap.data )                              // Check for invalid input
+    {
+        cout <<  "Could not open or find local map" << std::endl ;
+        return;
+    }
+    globalMaps.push_back(originalMap);
+
+    Mat grayMap;
+    cvtColor(originalMap,grayMap,CV_BGR2GRAY);
+    globalMaps.push_back(grayMap);
+
+    Mat labMap;
+    originalMap.convertTo(labMap, CV_32F);
+    labMap*=1/255.0;
+    cvtColor(labMap, labMap, CV_BGR2Lab);
+    globalMaps.push_back(labMap);
+
+    for(int i=0;i<heuristicTypes.size();++i)
+    {
+        heuristicType* h = heuristicTypes[i];
+
+        switch(h->strategy)
+        {
+        case SSD:
+
+            break;
+        case DENSITY:
+
+            Heuristic* dh;
+            double r = h->radius;
+
+            // Try to create the kernel
+            if(h->kernelType == KGAUSSIAN)
+            {
+                CGaussianC     g;
+                g.initializeKernel(&r);
+                dh = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), h->radius, h->threshold, h->colorDifference);
+            }
+            else if(h->kernelType == KANTIELIP)
+            {
+                CAntiEllipsoid a;
+                a.initializeKernel(&r);
+                dh = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), h->radius, h->threshold, h->colorDifference);
+            }
+            else if(h->kernelType == KCIRCULAR)
+            {
+                CCircular      c;
+                c.initializeKernel(&r);
+                dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), h->radius, h->threshold, h->colorDifference);
+            }
+
+            heuristics.push_back(dh);
+
+            string densityfilename = mapPath + "/" + strategyName(h->strategy) +
+                                    "_" + kernelName(h->kernelType) +
+                                    "_R" + h->radius +
+                                    "_T" + h->threshold + ".txt";
+
+            FILE* f = fopen(densityfilename.c_str(),"r");
+            MapGrid* mg = new MapGrid(f);
+            maps.push_back(mg);
+
+            break;
+        }
+    }
+
+    // Read images names
+    fstream input;
+    input.open(trajectoryName,std::fstream::in);
+    while(input.peek() != fstream::traits_type::eof()){
+        string tempStr;
+        getline(input,tempStr);
+        imagesNames.push_back(tempStr);
+    }
+    cout << "Num images " << imagesNames.size() << endl;
+
+}
+
 DroneRobot::~DroneRobot()
 {
 }
 
 void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 {
-    dataset = fname;
 
-    // Read fullMap
-    globalMap = imread(fname+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
-    if(! globalMap.data )                              // Check for invalid input
-    {
-        cout <<  "Could not open or find local map" << std::endl ;
-        return;
-    }
 
     // Create windows for the global map and the local map
-//    namedWindow( "Global Map", WINDOW_AUTOSIZE );
-    namedWindow( "Local Map", WINDOW_AUTOSIZE );
+//    namedWindow( "Global Map", WINDOW_KEEPRATIO );
+    namedWindow( "Local Map", WINDOW_KEEPRATIO );
 
 //    namedWindow("Red",1);
 //    namedWindow("Green",1);
@@ -38,26 +114,15 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
     // Create Matrices (make sure there is an image in input!)
 
 //     Show global map (resized to 20% of normal size).
-    Mat window;
-    resize(globalMap,window,Size(0,0),0.2,0.2);
+//    Mat window;
+//    resize(globalMaps[0],window,Size(0,0),0.2,0.2);
 //    imshow( "Global Map", window );
 
-    waitKey(1000);                                    // Wait for a keystroke in the window
+//    waitKey(1000);                                    // Wait for a keystroke in the window
 
     // Initialize MCL
     string locTechnique = "ssd";
-    vector<MapGrid*> tempVec;
-    mcLocalization = new MCL(tempVec, globalMap, locTechnique);
-
-    // Read images names
-    fstream input;
-    input.open(fname+"/input.txt",std::fstream::in);
-    while(input.peek() != fstream::traits_type::eof()){
-        string tempStr;
-        getline(input,tempStr);
-        imagesNames.push_back(fname+"/"+tempStr);
-    }
-    cout << "Num images " << imagesNames.size() << endl;
+    mcLocalization = new MCL(maps, globalMaps, locTechnique);
 
     step = 0;
 
@@ -76,9 +141,9 @@ void DroneRobot::run()
         cout <<  "Could not open or find local map" << std::endl ;
         return;
     }
-    Mat window;
-    resize(currentMap,window,Size(0,0),0.2,0.2);
-    imshow( "Local Map", window );
+//    Mat window;
+//    resize(currentMap,window,Size(0,0),0.2,0.2);
+    imshow( "Local Map", currentMap );
     waitKey(100);
 
     if(step>1)

@@ -55,7 +55,7 @@ void GlutClass::initialize()
 
     glEnable(GL_TEXTURE_2D);
     // Convert image and depth data to OpenGL textures
-    robot_->mcLocalization->imageTex = matToTexture(robot_->mcLocalization->globalMap, GL_LINEAR, GL_LINEAR, GL_CLAMP);
+    robot_->mcLocalization->imageTex = matToTexture(robot_->mcLocalization->globalMaps[0], GL_LINEAR, GL_LINEAR, GL_CLAMP);
     glDisable(GL_TEXTURE_2D);
 
 
@@ -390,10 +390,11 @@ GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFil
 
     Mat flipped;
     flip(mat,flipped,1);
+//    flipped = mat.clone();
 
     //use fast 4-byte alignment (default anyway) if possible
-//    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-//    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
     //set length of one complete row in data (doesn't need to equal image.cols)
 //    glPixelStorei(GL_UNPACK_ROW_LENGTH, flipped.step/flipped.elemSize());

@@ -129,9 +129,9 @@ void CCircular::calculateKernel(void)
 			float circular_value = ((norma<=m_radius+.5) ? 1.0f : 0.0f);
 			m_kernelMask[x+m_maskSizeX*y]=circular_value;
 			m_normalizationConstant += circular_value;
-			std::cout << circular_value << " ";
+            //std::cout << circular_value << " ";
 		}
-		std::cout << "" << std::endl;
+        //std::cout << "" << std::endl;
 	}
 	//Normalize it
 	normalizeMask();

@@ -15,7 +15,7 @@ enum occupancyValues { CELL_FREE, CELL_OBSTACLE, CELL_UNKNOWN };
 class MapGrid {
     public:
         // Start grid from file info, calculating densities using the heuristic.
-        MapGrid(FILE *mapFile, Heuristic *heuristic);
+        MapGrid(Mat *image, Mat *map, Heuristic *heuristic);
         // Start empty grid. 
         MapGrid(int width, int height, double floor, double ceil, Heuristic *heuristic);
         // Start grid from file with density info.
@@ -33,14 +33,14 @@ class MapGrid {
         bool isKnown(int x, int y);
         void clearCell(int x, int y);
     
-        int getHeuristicValue(int x, int y);
+        int    getHeuristicValue(int x, int y);
         double getPureHeuristicValue(int x, int y);
         double getOrientation(int x, int y);
-        bool isGradientReliable(int x, int y);
+        bool   isGradientReliable(int x, int y);
 
-        void calculateHeuristicFor(int x, int y);
-        double calculateGradientFor(int x, int y);
-        void smoothMap(); //incomplete function
+        void   calculateHeuristicFor(int x, int y, Mat* image, Mat* map);
+        double calculateGradientFor(int x, int y, Mat *image, Mat* map);
+        void   smoothMap(); //incomplete function
         double calculateOrientation(int x, int y); //get orientation from precalculated map (true)
         double calculateSobelOrientation(int x, int y); //get orientation from precalculated map (true)
         bool checkGrad(int x, int y);

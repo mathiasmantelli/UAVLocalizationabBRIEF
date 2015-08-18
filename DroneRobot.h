@@ -7,11 +7,13 @@
 using namespace cv;
 
 #include "Robot.h"
+#include "densityheuristic.h"
 
 class DroneRobot: public Robot
 {
 public:
     DroneRobot();
+    DroneRobot(string& mapPath, string& trajectoryPath, vector< heuristicType* > &heuristicTypes);
     ~DroneRobot();
 
     void initialize(ConnectionMode cmode, LogMode lmode, string fname);
@@ -21,9 +23,10 @@ private:
 
     Pose findOdometry(Mat &prevImage, Mat &curImage);
 
-    string dataset;
     vector<string> imagesNames;
-    Mat globalMap;
+    vector<Heuristic*> heuristics;
+    vector<MapGrid*> maps;
+    vector<Mat> globalMaps;
     Mat prevMap;
 
     unsigned int step;

@@ -19,7 +19,8 @@
 // Métodos Públicos //
 //////////////////////
 
-MCL::MCL(vector<MapGrid*> completeDensityMaps, Mat& gMap, string technique) : locTechnique(technique), globalMap(gMap)
+MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
+    locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
     numParticles = 50;
     resamplingThreshold = 100;
@@ -27,18 +28,14 @@ MCL::MCL(vector<MapGrid*> completeDensityMaps, Mat& gMap, string technique) : lo
     lastOdometry.y=0.0;
     lastOdometry.theta=0.0;
 
-    globalMap = gMap;
-
     particles.resize(numParticles);
 
-//    realMap = completeDensityMaps[0];
-    densityMaps = completeDensityMaps;
 
     std::default_random_engine generator;
-    std::uniform_real_distribution<double> randomX(0.25*globalMap.cols,0.75*globalMap.cols);
-    std::uniform_real_distribution<double> randomY(0.25*globalMap.cols,0.75*globalMap.cols);
-//    std::uniform_real_distribution<double> randomX(0.0,globalMap.cols);
-//    std::uniform_real_distribution<double> randomY(0.0,globalMap.rows);
+//    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+//    std::uniform_real_distribution<double> randomY(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+    std::uniform_real_distribution<double> randomX(0.0,globalMaps[0].cols);
+    std::uniform_real_distribution<double> randomY(0.0,globalMaps[0].rows);
     std::uniform_real_distribution<double> randomTh(-M_PI,M_PI);
 
     // generate initial set
@@ -89,8 +86,8 @@ MCL::~MCL()
 
 void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
 {
-    int h = globalMap.rows;
-    int w = globalMap.cols;
+    int h = globalMaps[0].rows;
+    int w = globalMaps[0].cols;
 
     // Atualiza a região da janela
     glMatrixMode (GL_PROJECTION);
@@ -503,11 +500,12 @@ void MCL::weightingSSD(Mat &z_robot)
 
     // Evaluate all particles
     int count = 0;
+    int globalMapID = 0;
 
     for(int i=0; i<particles.size(); i++){
-        Mat z_particle = getParticleObservation(particles[i].p, z_robot.size());
+        Mat z_particle = getParticleObservation(particles[i].p, z_robot.size(), globalMapID);
         particles[i].w = evaluateParticleUsingSSD(z_robot, z_particle);
-
+        sumWeights+= particles[i].w;
 //        Mat window;
 //        resize(z_particle,window,Size(0,0),0.2,0.2);
 //        imshow("particle"+to_string(i), window );
@@ -668,8 +666,10 @@ double MCL::sumAngles(double a, double b)
 
 }
 
-Mat MCL::getParticleObservation(Pose p, Size2f s)
+Mat MCL::getParticleObservation(Pose p, Size2f s, int globalMapID)
 {
+    Mat& globalMap = globalMaps[globalMapID];
+
     RotatedRect rRect = RotatedRect(Point2f(p.x,p.y), s, RAD2DEG(p.theta)+90.0);
     Rect bRect = rRect.boundingRect();
 
@@ -760,8 +760,8 @@ double MCL::evaluateParticleUsingSSD(Mat& z_robot, Mat& z_particle)
     int max_Trackbar = 1;
 
     img = z_robot;
-    templ = z_robot;
-    match_method = 4;
+    templ = z_particle;
+    match_method = 3;
 
     /// Create Trackbar
     char* trackbar_label = "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";

@@ -3,7 +3,10 @@
 
 class Heuristic;
 
-#include "MapGrid.h"
+#include<opencv2/core/core.hpp>
+#include<opencv2/opencv.hpp>
+using namespace cv;
+
 
 #include <climits>
 #include <float.h>
@@ -20,9 +23,9 @@ class MapGrid;
 class Heuristic
 {
     public:
-        virtual double calculateValue(int x, int y, MapGrid *map) = 0;
-        virtual double calculateGradientOrientation(int x, int y, MapGrid *map) = 0;
-        virtual double calculateGradientSobelOrientation(int x, int y, MapGrid *map) = 0;
+        virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
+        virtual double calculateGradientOrientation(int x, int y, Mat *image, Mat* map) = 0;
+        virtual double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map) = 0;
 };
 
 #endif
