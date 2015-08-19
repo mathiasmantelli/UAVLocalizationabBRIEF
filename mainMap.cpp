@@ -45,7 +45,7 @@ int main( int argc, char** argv )
             {
                 // store file name
                 std::string imageName(argv[p+1]);
-
+                cout << "Opening image name: " << imageName << endl;
                 // extract image
                 image = imread( imageName, 1);
 
@@ -103,21 +103,6 @@ int main( int argc, char** argv )
             {
                 // store file name
                 outputName=argv[p+1];
-                std::string fileExt(".txt");
-                if(outputName.size()>=fileExt.size()+1)
-                {
-                    if(strncmp(outputName.substr(outputName.size()-fileExt.size()).data(), fileExt.data(), fileExt.size()) != 0)
-                    {
-                        cerr << "File extension for the output file is invalid. should be \".txt\" " << endl;
-                        return -1;
-                    }
-                }
-                else
-                {
-                    cerr << "Output File extension should be \".txt\"" <<endl;
-                    return -1;
-                }
-                //increasing the string position
                 validInput[2]=true;
                 p+=2;
             }
@@ -282,24 +267,36 @@ int main( int argc, char** argv )
     CAntiEllipsoid a;
 
     DensityHeuristic* dh;
+    std::string kernelT;
 
     // Try to create the kernel
     if(kernelType.compare("Gaussian")==0 || kernelType.compare("gaussian")==0 )
     {
+        kernelT="GAUSSIAN";
         g.initializeKernel(&r);
-        dh = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), radius, 5.0, color_difference);
+        dh = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference);
     }
     else if(kernelType.compare("Inverted")==0 || kernelType.compare("inverted")==0)
     {
+        kernelT="ANTIELIP";
         a.initializeKernel(&r);
-        dh = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), radius, 5.0, color_difference);
+        dh = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference);
     }
     else if(kernelType.compare("Circular")==0 || kernelType.compare("circular")==0)
     {
+        kernelT="CIRCULAR";
         c.initializeKernel(&r);
-        dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), radius, 5.0, color_difference);
+        dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
     }
 
+    // Create aoutput file
+    outputName+=std::string("DENSITY") +
+            "_" + colorDifferenceName(color_difference) +
+            "_" + kernelT +
+            "_R" + std::to_string(int(radius)) +
+            "_T" + std::to_string(color_limiar) + ".txt";
+
+    cout << "Output name: " << outputName << endl;
 
     // Convert image to the appropriate format
     Mat used;
@@ -328,13 +325,14 @@ int main( int argc, char** argv )
     cout << "Generating density map file..." << endl;
     cout << "1. Setting the limiar..." << endl;
     //dh->setLimiarAsMeanDifference(used, map);
-    dh->setLimiar(2.3);
+    //dh->setLimiar(2.3);
     cout << dh->getLimiar() << endl;
 
     // initialize heristics vector
     std::vector<double> heuristics_vector(used.rows*used.cols,HEURISTIC_UNDEFINED);
     cout << "2. computing density values: this will take a very long time for large kernels..." << endl;
-        for(int y=dh->getRadius();y<used.rows-dh->getRadius();++y)
+
+    for(int y=dh->getRadius();y<used.rows-dh->getRadius();++y)
     for(int x=dh->getRadius();x<used.cols-dh->getRadius();++x)
         {
             // check free region
@@ -345,7 +343,6 @@ int main( int argc, char** argv )
             else
                 heuristics_vector[y*used.cols+x]=HEURISTIC_UNDEFINED;
         }
-
     cout << "3. Storing width, height, kernel type, radius, color-difference, and limiar" << endl;
     fstream stream;
     stream.open(outputName.data(), std::fstream::out);
@@ -371,7 +368,7 @@ int main( int argc, char** argv )
     stream.close();
 
 // Stores a gigantic image for some unknown reason
-//    // Write to file!
+//    // Write to file!CV_WINDOW_AUTOSIZE
     Mat density(used.rows, used.cols, CV_64FC1, &heuristics_vector[0]);
 //    //resize(density, density, Size(used.cols, used.rows));
 
@@ -379,12 +376,14 @@ int main( int argc, char** argv )
 //    cv::FileStorage file(outputName, cv::FileStorage::WRITE);
 //    file << "density" << density;
 
+    Mat window;
+    resize(density,window,Size(0,0),0.1,0.1);
 
-    namedWindow( "Density Map", CV_WINDOW_AUTOSIZE );
-    imshow( "Density Map", density );
-    namedWindow( "Original", CV_WINDOW_AUTOSIZE );
+    namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
+    imshow( "Density Map", window );
+    namedWindow( "Original", CV_WINDOW_KEEPRATIO );
     imshow( "Original", image );
-    namedWindow( "Map", CV_WINDOW_AUTOSIZE );
+    namedWindow( "Map", CV_WINDOW_KEEPRATIO );
     imshow( "Map", map );
 
  waitKey(0);

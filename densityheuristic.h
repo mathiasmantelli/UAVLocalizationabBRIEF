@@ -13,7 +13,7 @@ enum STRATEGY{
     DENSITY,
     DENSITY_LOCALCOLORDIFF
 };
-
+string colorDifferenceName(int colorDiffID);
 string strategyName(STRATEGY s);
 string kernelName(int k);
 

@@ -71,6 +71,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             heuristics.push_back(dh);
 
             string densityfilename = mapPath + "/" + strategyName(h->strategy) +
+                                    "_" + colorDifferenceName(h->threshold) +
                                     "_" + kernelName(h->kernelType) +
                                     "_R" + h->radius +
                                     "_T" + h->threshold + ".txt";
@@ -229,8 +230,8 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    cout << warp_matrix << endl;
 
     Pose p;
-    p.x = warp_matrix.at<float>(0,2);
-    p.y = warp_matrix.at<float>(1,2);
+    p.x = warp_matrix.at<float>(0,2)/0.2;
+    p.y = warp_matrix.at<float>(1,2)/0.2;
     p.theta = acos(warp_matrix.at<float>(0,0));
 
     return p;

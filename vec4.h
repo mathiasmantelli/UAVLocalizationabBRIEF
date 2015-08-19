@@ -1,4 +1,3 @@
-
 #ifndef __VEC4H__
 #define __VEC4H__
 #include <float.h>

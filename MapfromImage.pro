@@ -11,6 +11,7 @@
 TARGET = MapfromImage
 CONFIG   += console
 CONFIG   -= app_bundle
+QMAKE_CXXFLAGS += -std=c++0x
 
 TEMPLATE = app
 
@@ -44,6 +45,4 @@ HEADERS += \
     MapGrid.h
 
 INCLUDEPATH += -I/usr/local/include/opencv2
-
-
-LIBS += `pkg-config opencv --libs`
+LIBS += -L/usr/local/lib `pkg-config opencv --libs`
