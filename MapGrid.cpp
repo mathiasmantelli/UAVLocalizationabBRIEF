@@ -50,8 +50,15 @@ MapGrid::MapGrid(int width, int height, double floor, double ceil, Heuristic *he
 MapGrid::MapGrid(FILE *mapFile)
 {
     // Read dimensions.
-    fscanf(mapFile, "%d %d\n", &width, &height);
+    char kernel[80];
+    float fileThreshold=0.0;
+    int fileColorDiff=0;
+    int fileRadius=0;
+    fscanf(mapFile, "%d %d %s %d %d %f", &width, &height, kernel, &fileRadius, &fileColorDiff, &fileThreshold);
     cout << "width: " << width << " height: " << height << endl;
+    cout << "Densty data: " << kernel << " r " << fileRadius << " cdiff " <<  fileColorDiff <<
+            " t " << fileThreshold << endl;
+
     cells = new occupancyValues[width*height];
     heuristicValues = new double[width*height];
     gradients = new double[width*height];
@@ -59,8 +66,8 @@ MapGrid::MapGrid(FILE *mapFile)
 
     // Read grid and densities from file.
     char read;
-    for(int hI=height-1; hI>=0; hI--)
-//    for(int hI=0; hI < height; hI++)
+//    for(int hI=height-1; hI>=0; hI--)
+    for(int hI=0; hI < height; hI++)
     {
         for(int wI=0; wI < width; wI++)
         {
@@ -171,9 +178,8 @@ int MapGrid::getHeuristicValue(int x, int y)
     if(fabs(heuristicValues[y*width + x]-HEURISTIC_UNDEFINED) < 0.01) // Undefined
         return HEURISTIC_UNDEFINED_INT;
     else
-        return int(
-                    (heuristicValues[y*width + x] - floorValue) /
-                (ceilValue - floorValue) * QUANTIZATION_LEVELS
+        return int( (heuristicValues[y*width + x] - floorValue) /
+                    (ceilValue - floorValue) * QUANTIZATION_LEVELS
                 );
 }
 

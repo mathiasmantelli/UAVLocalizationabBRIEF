@@ -4,7 +4,7 @@
 
 #include <unistd.h>
 #include <fstream>
-
+#include <iostream>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/video.hpp>
 
@@ -71,11 +71,12 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             heuristics.push_back(dh);
 
             string densityfilename = mapPath + "/" + strategyName(h->strategy) +
-                                    "_" + colorDifferenceName(h->threshold) +
+                                    "_" + colorDifferenceName(h->colorDifference) +
                                     "_" + kernelName(h->kernelType) +
-                                    "_R" + h->radius +
-                                    "_T" + h->threshold + ".txt";
+                                    "_R" + std::to_string(int(h->radius)) +
+                                    "_T" + std::to_string(h->threshold) + ".txt";
 
+            cout << "Open denity file: " << densityfilename << endl;
             FILE* f = fopen(densityfilename.c_str(),"r");
             MapGrid* mg = new MapGrid(f);
             maps.push_back(mg);
@@ -102,8 +103,6 @@ DroneRobot::~DroneRobot()
 
 void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 {
-
-
     // Create windows for the global map and the local map
 //    namedWindow( "Global Map", WINDOW_KEEPRATIO );
     namedWindow( "Local Map", WINDOW_KEEPRATIO );
@@ -152,8 +151,14 @@ void DroneRobot::run()
     cout << "Odometry: " << odometry_ << endl;
     prevMap = currentMap;
 
-    vector<int> densities;
-    vector<double> gradients;
+    vector<int> densities(heuristics.size());
+    vector<double> gradients(heuristics.size());
+    for(int i=0;i<heuristics.size();++i)
+    {
+        densities[i]=heuristics.at(i)->calculateValue(currentMap.cols/2, currentMap.rows/2, &currentMap);
+        gradients[i]=heuristics[i]->calculateGradientSobelOrientation(currentMap.cols/2, currentMap.rows/2, &currentMap);
+    }
+    // Obtain
     double time=0;
     mcLocalization->run(odometry_,currentMap,densities,gradients,time);
 

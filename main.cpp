@@ -78,7 +78,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
         // print help and exit
         if(!strncmp(argv[p], "-h", 2) || !strncmp(argv[p], "-H", 2) || !strncmp(argv[p], "--help", 6))
         {
-            cout << "Usage: PhiR2Framework -i <path/image> -o <path/outputFile> -k <gaussian|circular|inverted> <int> <diff-intensity|diff-rgb|diff-cie1976|diff-cmc1984|diff-cie1994|diff-cie2000|diff-cie1994mix|diff-cie2000mix> -m <path/mapimage>" << endl;
+            cout << "Usage: PhiR2Framework -e <path/> -o <path/outputFile> -s <density|ssd> <diff-intensity|diff-rgb|diff-cie1976|diff-cmc1984|diff-cie1994|diff-cie2000|diff-cie1994mix|diff-cie2000mix> <double> <gaussian|circular|inverted> <int>" << endl;
             exit(0);
         }
         // Check if this is the filename part -- step 1

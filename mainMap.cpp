@@ -346,8 +346,8 @@ int main( int argc, char** argv )
     cout << "3. Storing width, height, kernel type, radius, color-difference, and limiar" << endl;
     fstream stream;
     stream.open(outputName.data(), std::fstream::out);
-    stream << used.cols << " " << used.rows << kernelType << " " << dh->getRadius() << " "
-           << " " << color_difference << dh->getLimiar() << endl;
+    stream << used.cols << " " << used.rows << " " << kernelType << " "
+           << dh->getRadius() << " " << color_difference << " " << dh->getLimiar() << endl;
 
     // Storing data file...
     for(int yI = dh->getRadius(); yI < used.rows-dh->getRadius(); ++yI)

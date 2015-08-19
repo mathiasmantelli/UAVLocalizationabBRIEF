@@ -23,7 +23,6 @@ SOURCES += \
     vec2.cpp \
     vec3.cpp \
     vec4.cpp \
-    ckdemap.cpp \
     angleutil.cpp \
     densityheuristic.cpp \
     MapGrid.cpp \
@@ -37,7 +36,6 @@ HEADERS += \
     vec2.h \
     vec3.h \
     vec4.h \
-    ckdemap.h \
     RadiusVolumeTransferFunctions.h \
     angleutil.h \
     Heuristic.h \
