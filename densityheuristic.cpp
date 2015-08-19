@@ -232,7 +232,8 @@ double DensityHeuristic::calculateGradientSobelOrientation(int xCenter, int yCen
 
 double DensityHeuristic::calculateMeanDifference(Mat &image, Mat& map)
 {
-    // update color_mean
+    // update color_mean    int getColorDifference();
+
     calculateMeanColor(image, map);
     int count = 0;
     // compute mean difference
@@ -328,4 +329,8 @@ void DensityHeuristic::setLimiar(double val)
     }
     else
         limiar = val;
+}
+int DensityHeuristic::getColorDifference()
+{
+    return color_difference;
 }

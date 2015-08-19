@@ -54,6 +54,7 @@ public:
     vec3 getValuefromPixel(int x, int y, Mat *image);
     double getRadius();
     double getLimiar();
+    int getColorDifference();
 
     // set values
     void setLimiar(double val);

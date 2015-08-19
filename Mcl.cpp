@@ -384,10 +384,13 @@ void MCL::sampling(Pose &u)
     std::default_random_engine generator (seed);
     std::uniform_real_distribution<double> randomValue(-1.0,1.0);
 
-    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
+//    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    cout << "delta " << delta << endl;
+//    double angle = u.theta - lastOdometry.theta;
 
-    double angle = u.theta - lastOdometry.theta;
+    double delta = sqrt(pow(u.x,2)+pow(u.y,2));
+//    cout << "delta " << delta << endl;
+    double angle = u.theta;
 
     for(int i=0; i<particles.size(); i++){
         particles[i].p.theta += angle + randomValue(generator)*3*M_PI/180.0;
@@ -412,22 +415,20 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     for(int i=0; i<particles.size(); i++){
         int x=round(particles[i].p.x);
         int y=round(particles[i].p.y);
-        for(int l=0; l<densities.size(); l=l+1) {
+        for(int l=0; l<densityMaps.size(); l=l+1) {
             if(densityMaps[l]->getHeuristicValue(x,y)<minVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
                 minVal = densityMaps[l]->getHeuristicValue(x,y);
             if(densityMaps[l]->getHeuristicValue(x,y)>maxVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
                 maxVal = densityMaps[l]->getHeuristicValue(x,y);
-
         }
     }
     cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
     cout << "HEURISTIC: " << densities[0] << endl;
 
     for(int i=0; i<particles.size(); i++){
-
         // check if particle is valid (known and not obstacle)
-        if(!realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-           realMap->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
+        if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+           densityMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
             particles[i].w = 0.0;
             continue;
         }
@@ -444,7 +445,6 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
             }else{
                 prob *= 0.5;
             }
-
 
 //            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
 //                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(densityMaps[l]->getHeuristicValue(x,y)-densities[l],2)/var));

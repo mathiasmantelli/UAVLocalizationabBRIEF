@@ -27,6 +27,7 @@ class MapGrid {
         
         double getFloorValue();
         double getCeilValue();
+        int convertToMapGridDiscrete(double val);
 
         void setObstacle(bool isObstacle, int x, int y);
         bool isObstacle(int x, int y);

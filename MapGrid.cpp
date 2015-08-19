@@ -182,6 +182,10 @@ int MapGrid::getHeuristicValue(int x, int y)
                     (ceilValue - floorValue) * QUANTIZATION_LEVELS
                 );
 }
+int MapGrid::convertToMapGridDiscrete(double val)
+{
+    return int((val - floorValue)/(ceilValue - floorValue) * QUANTIZATION_LEVELS);
+}
 
 double MapGrid::getPureHeuristicValue(int x, int y)
 {

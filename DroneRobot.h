@@ -19,15 +19,22 @@ public:
     void initialize(ConnectionMode cmode, LogMode lmode, string fname);
     void run();
 
+    int selectMapID(int colorDiff);
+    void createColorVersions(Mat& imageRGB);
+
+
 private:
 
     Pose findOdometry(Mat &prevImage, Mat &curImage);
 
+
+
     vector<string> imagesNames;
-    vector<Heuristic*> heuristics;
+    vector<DensityHeuristic*> heuristics;
     vector<MapGrid*> maps;
     vector<Mat> globalMaps;
     Mat prevMap;
+    vector<Mat> mapsColorConverted;
 
     unsigned int step;
 
