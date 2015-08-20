@@ -122,6 +122,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=SSD;
                 else if(s.compare("DENSITY")==0 || s.compare("density")==0)
                     ht->strategy=DENSITY;
+                else if(s.compare("CREATE")==0 || s.compare("create")==0)
+                    ht->strategy=CREATE_OBSERVATIONS;
                 else
                     return errorMessage(p+1, "Invalid strategy: " + s);
             } else

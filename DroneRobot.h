@@ -21,6 +21,7 @@ public:
 
 private:
 
+    void generateObservations(string path);
     Pose findOdometry(Mat &prevImage, Mat &curImage);
 
     vector<string> imagesNames;

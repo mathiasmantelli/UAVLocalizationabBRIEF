@@ -33,6 +33,8 @@ class MCL
         vector<Mat>& globalMaps;
         GLuint imageTex;
 
+        static Mat getParticleObservation(Pose p, Size2f s, Mat &largeMap);
+
     private:
         int strategyCode;
         fstream particleLog;
@@ -58,7 +60,6 @@ class MCL
         double computeAngleError(double trueTh, double particleTh);
         double sumAngles(double a, double b);
 
-        Mat getParticleObservation(Pose p, Size2f s, int globalMapID);
         double evaluateParticleUsingSSD(Mat& z_robot, Mat& z_particle);
 
         // Static stuff used for image matching
