@@ -22,7 +22,7 @@
 MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 50;
+    numParticles = 5000;
     resamplingThreshold = 100;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;

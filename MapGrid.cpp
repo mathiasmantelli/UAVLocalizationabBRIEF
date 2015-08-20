@@ -165,16 +165,22 @@ void MapGrid::clearCell(int x, int y)
 
 bool MapGrid::isObstacle(int x, int y)
 {
+    if(x<0 || x>=width || y<0 || y>=height)
+        return true;
     return (cells[y*width + x]==CELL_OBSTACLE);
 }
 
 bool MapGrid::isKnown(int x, int y)
 {
+    if(x<0 || x>=width || y<0 || y>=height)
+        return false;
     return (cells[y*width + x]!=CELL_UNKNOWN);
 }
     
 int MapGrid::getHeuristicValue(int x, int y)
 {
+    if(x<0 || x>=width || y<0 || y>=height)
+        return HEURISTIC_UNDEFINED;
     if(fabs(heuristicValues[y*width + x]-HEURISTIC_UNDEFINED) < 0.01) // Undefined
         return HEURISTIC_UNDEFINED_INT;
     else

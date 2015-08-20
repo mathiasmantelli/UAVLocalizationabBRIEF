@@ -193,13 +193,13 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 {
     Mat im1_gray, im2_gray;
 
-    // Reduce size of images
-    resize(prevImage,im1_gray,Size(0,0),0.2,0.2);
-    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
+//    // Reduce size of images
+//    resize(prevImage,im1_gray,Size(0,0),0.2,0.2);
+//    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
 
     // Convert images to gray scale;
-    cvtColor(im1_gray, im1_gray, CV_BGR2GRAY);
-    cvtColor(im2_gray, im2_gray, CV_BGR2GRAY);
+    cvtColor(prevImage, im1_gray, CV_BGR2GRAY);
+    cvtColor(curImage, im2_gray, CV_BGR2GRAY);
 
     // Define the motion model
     const int warp_mode = MOTION_EUCLIDEAN;
@@ -251,8 +251,8 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    cout << warp_matrix << endl;
 
     Pose p;
-    p.x = warp_matrix.at<float>(0,2)/0.2;
-    p.y = warp_matrix.at<float>(1,2)/0.2;
+    p.x = warp_matrix.at<float>(0,2);
+    p.y = warp_matrix.at<float>(1,2);
     p.theta = acos(warp_matrix.at<float>(0,0));
 
     return p;
