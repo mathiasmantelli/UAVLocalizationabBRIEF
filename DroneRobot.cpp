@@ -82,6 +82,16 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             MapGrid* mg = new MapGrid(f);
             maps.push_back(mg);
 
+            Mat a(mg->getWidth(),mg->getHeight(),CV_8UC1,Scalar(0));
+            for(int hI=0; hI < mg->getWidth(); hI++)
+                for(int wI=0; wI < mg->getHeight(); wI++)
+                    if(!mg->isKnown(hI,wI))
+                        a.at<char>(hI,wI) = 255;
+
+            namedWindow("A",CV_WINDOW_KEEPRATIO);
+            imshow("A",a);
+            waitKey(0);
+
             break;
         }
     }

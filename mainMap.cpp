@@ -350,9 +350,9 @@ int main( int argc, char** argv )
            << dh->getRadius() << " " << color_difference << " " << dh->getLimiar() << endl;
 
     // Storing data file...
-    for(int yI = dh->getRadius(); yI < used.rows-dh->getRadius(); ++yI)
+    for(int yI = 0; yI < used.rows; ++yI)
     {
-        for(int xI = dh->getRadius(); xI < used.cols-dh->getRadius(); ++xI)
+        for(int xI = 0; xI < used.cols; ++xI)
         {
             if(heuristics_vector[yI*used.cols+xI]!=HEURISTIC_UNDEFINED){
                 stream << "0/" << heuristics_vector[yI*used.cols+xI] << " ";
