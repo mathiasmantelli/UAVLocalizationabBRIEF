@@ -22,7 +22,7 @@
 MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 50;
+    numParticles = 500;
     resamplingThreshold = 100;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -138,7 +138,11 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
 
 
         // Draw point
-        glColor3f(1.0,0.0,0.0);
+        if(particles[p].w == 0.0)
+            glColor3f(1.0,0.0,0.0);
+        else
+            glColor3f(1.0,1.0,0.0);
+
         glPointSize(6);
         glBegin( GL_POINTS );
         {
@@ -384,19 +388,14 @@ void MCL::sampling(Pose &u)
     std::default_random_engine generator (seed);
     std::uniform_real_distribution<double> randomValue(-1.0,1.0);
 
-    double delta = sqrt(pow(u.x,2)+pow(u.y,2));
-//    cout << "delta " << delta << endl;
-
-    double angle = u.theta;
-
     for(int i=0; i<particles.size(); i++){
-        particles[i].p.theta += angle + randomValue(generator)*3*M_PI/180.0;
+        particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
+        particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
+        particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
         while(particles[i].p.theta > M_PI)
             particles[i].p.theta -= 2*M_PI;
         while(particles[i].p.theta < -M_PI)
             particles[i].p.theta += 2*M_PI;
-        particles[i].p.x += delta*cos(particles[i].p.theta) + randomValue(generator)*0.25;
-        particles[i].p.y += delta*sin(particles[i].p.theta) + randomValue(generator)*0.25;
     }
 }
 
@@ -412,23 +411,22 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     for(int i=0; i<particles.size(); i++){
         int x=round(particles[i].p.x);
         int y=round(particles[i].p.y);
-        for(int l=0; l<densities.size(); l=l+1) {
+        for(int l=0; l<densityMaps.size(); ++l) {
             if(densityMaps[l]->getHeuristicValue(x,y)<minVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
                 minVal = densityMaps[l]->getHeuristicValue(x,y);
             if(densityMaps[l]->getHeuristicValue(x,y)>maxVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
                 maxVal = densityMaps[l]->getHeuristicValue(x,y);
-
         }
     }
     cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
     cout << "HEURISTIC: " << densities[0] << endl;
 
     for(int i=0; i<particles.size(); i++){
-
         // check if particle is valid (known and not obstacle)
-        if(!realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-           realMap->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
+        if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+           densityMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
             particles[i].w = 0.0;
+            count++;
             continue;
         }
 
@@ -440,11 +438,10 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
         for(int l=0; l<densities.size(); l=l+1) {
             if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT){
                 prob *= 1.0;
-                count++;
+//                count++;
             }else{
                 prob *= 0.5;
             }
-
 
 //            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
 //                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(densityMaps[l]->getHeuristicValue(x,y)-densities[l],2)/var));
@@ -464,15 +461,15 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     for(int i=0; i<particles.size(); i++)
         sumWeights += particles[i].w;
 
-    //cout << "SumWeights B " << sumWeights << endl;
+    cout << "SumWeights B " << sumWeights << endl;
 
     // Correct zero error
     if(sumWeights==0.0)
     {
         for(int i=0; i<particles.size(); i++) {
             // check if particle is valid (known and not obstacle)
-            if(!realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-               realMap->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
+            if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+               densityMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
                 particles[i].w = 0.0;
             }
             else {
@@ -483,14 +480,20 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     }
     cout << "Matei: " << count << " partículas." << endl;
 
+    count = 0;
+
     //normalize particles
     if(sumWeights!=0.0)
-        for(int i=0; i<particles.size(); i++)
+        for(int i=0; i<particles.size(); i++){
             particles[i].w /= sumWeights;
+            if(particles[i].w == 0.0)
+                count++;
+        }
     else
         for(int i=0; i<particles.size(); i++)
             particles[i].w = 1.0/numParticles;
 
+    cout << "Confirmando Matei: " << count << " partículas." << endl;
 
 }
 
@@ -559,7 +562,7 @@ void MCL::resampling()
     }
 //    cout << " size nextGeneration " << nextGeneration.size();
 
-    // update particles set
+
     particles = nextGeneration;
 
 }

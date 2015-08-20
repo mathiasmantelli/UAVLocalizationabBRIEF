@@ -389,21 +389,21 @@ GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFil
     }
 
     Mat reduced;
-//    if(mat.cols > 8000 || mat.rows > 8000){
-//        int w = mat.cols;
-//        int h = mat.rows;
-//        if(h>w){
-//            w = 8000*w/h;
-//            h = 8000;
-//        }else{
-//            h = 8000*h/w;
-//            w = 8000;
-//        }
+    if(mat.cols > 8000 || mat.rows > 8000){
+        int w = mat.cols;
+        int h = mat.rows;
+        if(h>w){
+            w = 8000*w/h;
+            h = 8000;
+        }else{
+            h = 8000*h/w;
+            w = 8000;
+        }
 
-//        resize(mat,reduced,Size(w,h),0,0);
-//    }else{
+        resize(mat,reduced,Size(w,h),0,0);
+    }else{
         reduced = mat;
-//    }
+    }
 
 
     Mat flipped;

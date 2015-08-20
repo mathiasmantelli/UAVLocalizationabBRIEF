@@ -14,7 +14,7 @@ enum STRATEGY{
     DENSITY_LOCALCOLORDIFF,
     CREATE_OBSERVATIONS
 };
-
+string colorDifferenceName(int colorDiffID);
 string strategyName(STRATEGY s);
 string kernelName(int k);
 
@@ -55,6 +55,7 @@ public:
     vec3 getValuefromPixel(int x, int y, Mat *image);
     double getRadius();
     double getLimiar();
+    int getColorDifference();
 
     // set values
     void setLimiar(double val);

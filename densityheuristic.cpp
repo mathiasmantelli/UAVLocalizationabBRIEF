@@ -2,6 +2,30 @@
 #include "ColorCPU.h"
 #include <iostream>
 
+string colorDifferenceName(int colorDiffID)
+{
+    switch(colorDiffID) {
+    case INTENSITYC:
+        return "INTENSITYC";
+    case CMCLAB1984:
+        return "INTENSITYC";
+    case CIELAB1976:
+        return"CIELAB1976";
+    case CIELAB1994:
+        return"CIELAB1994";
+    case CIELAB2000:
+        return"CIELAB2000";
+    case CIELAB2000MIX:
+        return"CIELAB2000MIX";
+    case CIELAB1994MIX:
+        return"CIELAB1994MIX";
+    case RGBNORMA:
+        return"RGBNORMA";
+    default:
+        return "ERROR";
+    }
+}
+
 string strategyName(STRATEGY s)
 {
     switch(s)
@@ -208,7 +232,8 @@ double DensityHeuristic::calculateGradientSobelOrientation(int xCenter, int yCen
 
 double DensityHeuristic::calculateMeanDifference(Mat &image, Mat& map)
 {
-    // update color_mean
+    // update color_mean    int getColorDifference();
+
     calculateMeanColor(image, map);
     int count = 0;
     // compute mean difference
@@ -304,4 +329,8 @@ void DensityHeuristic::setLimiar(double val)
     }
     else
         limiar = val;
+}
+int DensityHeuristic::getColorDifference()
+{
+    return color_difference;
 }

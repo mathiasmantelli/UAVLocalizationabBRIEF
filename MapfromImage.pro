@@ -11,6 +11,7 @@
 TARGET = MapfromImage
 CONFIG   += console
 CONFIG   -= app_bundle
+QMAKE_CXXFLAGS += -std=c++0x
 
 TEMPLATE = app
 
@@ -22,7 +23,6 @@ SOURCES += \
     vec2.cpp \
     vec3.cpp \
     vec4.cpp \
-    ckdemap.cpp \
     angleutil.cpp \
     densityheuristic.cpp \
     MapGrid.cpp \
@@ -36,7 +36,6 @@ HEADERS += \
     vec2.h \
     vec3.h \
     vec4.h \
-    ckdemap.h \
     RadiusVolumeTransferFunctions.h \
     angleutil.h \
     Heuristic.h \
@@ -44,6 +43,4 @@ HEADERS += \
     MapGrid.h
 
 INCLUDEPATH += -I/usr/local/include/opencv2
-
-
-LIBS += `pkg-config opencv --libs`
+LIBS += -L/usr/local/lib `pkg-config opencv --libs`
