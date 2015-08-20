@@ -545,7 +545,7 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     //cout <<  "Entradas: " << count << endl;
     //cout << "SumWeights A " << sumWeights << endl;
 
-    discardInvalidDeltaAngles(u,gradients);
+    //discardInvalidDeltaAngles(u,gradients);
 
     sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)

@@ -237,7 +237,6 @@ void DroneRobot::run()
     {
         // Choose appropriate color scheme
         int mapID = selectMapID(heuristics[i]->getColorDifference());
-
         // create discrete density value according to the corresonding mapgrid
         densities[i]=heuristics[i]->calculateValue(
                     currentMap.cols/2, currentMap.rows/2,
@@ -247,7 +246,6 @@ void DroneRobot::run()
         gradients[i]=heuristics[i]->calculateGradientSobelOrientation(
                     currentMap.cols/2, currentMap.rows/2,
                     &mapsColorConverted[mapID], &mask);
-
     }
     // Obtain
     double time=0;
@@ -472,9 +470,7 @@ int DroneRobot::selectMapID(int colorDiff)
     switch(colorDiff)
     {
     /// index of mapsColorConverted
-    /// 0: RGB
-    /// 1: Intensity
-    /// 2: LAB
+    /// 0: RGB, 1: Intensity, 2: LAB
     case INTENSITYC:
         return 1;
     case CIELAB1976:
