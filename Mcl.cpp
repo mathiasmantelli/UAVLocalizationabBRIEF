@@ -22,7 +22,7 @@
 MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 500;
+    numParticles = 1;
     resamplingThreshold = 100;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -463,7 +463,7 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     //cout <<  "Entradas: " << count << endl;
     //cout << "SumWeights A " << sumWeights << endl;
 
-    discardInvalidDeltaAngles(u,gradients);
+    //discardInvalidDeltaAngles(u,gradients);
 
     sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)
