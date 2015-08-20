@@ -22,7 +22,7 @@
 MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 5000;
+    numParticles = 500;
     resamplingThreshold = 100;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -397,13 +397,13 @@ void MCL::sampling(Pose &u)
     double angle = u.theta;
 
     for(int i=0; i<particles.size(); i++){
+        particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
+        particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
         particles[i].p.theta += angle + randomValue(generator)*3*M_PI/180.0;
         while(particles[i].p.theta > M_PI)
             particles[i].p.theta -= 2*M_PI;
         while(particles[i].p.theta < -M_PI)
             particles[i].p.theta += 2*M_PI;
-        particles[i].p.x += delta*cos(particles[i].p.theta) + randomValue(generator)*0.25;
-        particles[i].p.y += delta*sin(particles[i].p.theta) + randomValue(generator)*0.25;
     }
 }
 

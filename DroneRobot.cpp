@@ -172,14 +172,18 @@ void DroneRobot::run()
     vector<double> gradients(heuristics.size());
     for(int i=0;i<heuristics.size();++i)
     {
+        // Choose appropriate color scheme
+        int mapID = selectMapID(heuristics[i]->getColorDifference());
+
+        // create discrete density value according to the corresonding mapgrid
         densities[i]=heuristics[i]->calculateValue(
                     currentMap.cols/2, currentMap.rows/2,
-                    &mapsColorConverted[heuristics[i]->getColorDifference()], &mask);
-        // create discrete density value according to the corresonding mapgrid
+                    &mapsColorConverted[mapID], &mask);
         densities[i]=maps[i]->convertToMapGridDiscrete(densities[i]);
+        // and do the same for the angles
         gradients[i]=heuristics[i]->calculateGradientSobelOrientation(
                     currentMap.cols/2, currentMap.rows/2,
-                    &mapsColorConverted[heuristics[i]->getColorDifference()], &mask);
+                    &mapsColorConverted[mapID], &mask);
 
     }
     // Obtain
@@ -279,6 +283,10 @@ void DroneRobot::createColorVersions(Mat& imageRGB)
     imageRGB.convertTo(mapsColorConverted[2], CV_32F);
     mapsColorConverted[2]*=1/255.0;
     cvtColor(imageRGB, mapsColorConverted[2], CV_BGR2Lab);
+
+    for (int i=0; i<mapsColorConverted.size();++i)
+        cout << mapsColorConverted[i].size() << endl;
+
 }
 int DroneRobot::selectMapID(int colorDiff)
 {
