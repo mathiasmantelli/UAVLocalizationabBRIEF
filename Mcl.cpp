@@ -190,7 +190,7 @@ bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients
     if(delta<1.0)
         return false;
 
-    cout << "Starting MCL" << endl;
+//    cout << "Starting MCL" << endl;
 
     double elapsedTime, totalElapsedTime=0.0;
     struct timeval tstart, tend;
@@ -388,18 +388,10 @@ void MCL::sampling(Pose &u)
     std::default_random_engine generator (seed);
     std::uniform_real_distribution<double> randomValue(-1.0,1.0);
 
-//    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
-//    cout << "delta " << delta << endl;
-//    double angle = u.theta - lastOdometry.theta;
-
-    double delta = sqrt(pow(u.x,2)+pow(u.y,2));
-//    cout << "delta " << delta << endl;
-    double angle = u.theta;
-
     for(int i=0; i<particles.size(); i++){
         particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
         particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
-        particles[i].p.theta += angle + randomValue(generator)*3*M_PI/180.0;
+        particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
         while(particles[i].p.theta > M_PI)
             particles[i].p.theta -= 2*M_PI;
         while(particles[i].p.theta < -M_PI)
@@ -514,7 +506,7 @@ void MCL::weightingSSD(Mat &z_robot)
     int globalMapID = 0;
 
     for(int i=0; i<particles.size(); i++){
-        Mat z_particle = getParticleObservation(particles[i].p, z_robot.size(), globalMapID);
+        Mat z_particle = getParticleObservation(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
         particles[i].w = evaluateParticleUsingSSD(z_robot, z_particle);
         sumWeights+= particles[i].w;
 //        Mat window;
@@ -677,12 +669,19 @@ double MCL::sumAngles(double a, double b)
 
 }
 
-Mat MCL::getParticleObservation(Pose p, Size2f s, int globalMapID)
+Mat MCL::getParticleObservation(Pose p, Size2f s, Mat& largeMap)
 {
-    Mat& globalMap = globalMaps[globalMapID];
+    Mat& globalMap = largeMap;
 
     RotatedRect rRect = RotatedRect(Point2f(p.x,p.y), s, RAD2DEG(p.theta)+90.0);
     Rect bRect = rRect.boundingRect();
+
+    vector<Point2f> boundaries;
+    boundaries.push_back(Point2f(bRect.x,bRect.y));
+    boundaries.push_back(Point2f(bRect.x+bRect.width,bRect.y+bRect.height));
+    boundaries.push_back(Point2f(p.x-s.width/2,p.y-s.height/2));
+    boundaries.push_back(Point2f(p.x+s.width/2,p.y+s.height/2));
+    bRect = boundingRect(boundaries);
 
     Mat source(bRect.height, bRect.width, CV_8UC3, Scalar(0));
     Point2f center(source.cols/2, source.rows/2);
@@ -710,7 +709,7 @@ Mat MCL::getParticleObservation(Pose p, Size2f s, int globalMapID)
         yf = bRect.height;
     }
 
-    Mat image_roi = globalMap(bRect);
+    Mat image_roi = globalMap(bRect).clone();
 
     Mat aux = source.colRange(xi,xf).rowRange(yi,yf);
     image_roi.copyTo(aux);
@@ -718,10 +717,10 @@ Mat MCL::getParticleObservation(Pose p, Size2f s, int globalMapID)
     // get angle and size from the bounding box
     float angle = rRect.angle;
     Size rect_size = rRect.size;
-    if (rRect.angle < -45.) {
-        angle += 90.0;
-        swap(rect_size.width, rect_size.height);
-    }
+//    if (rRect.angle < -45.) {
+//        angle += 90.0;
+//        swap(rect_size.width, rect_size.height);
+//    }
 
     // get the rotation matrix
     Mat M = getRotationMatrix2D(center, angle, 1.0);
@@ -734,22 +733,26 @@ Mat MCL::getParticleObservation(Pose p, Size2f s, int globalMapID)
     Mat cropped;
     getRectSubPix(rotated, rect_size, center, cropped);
 
-    if (rRect.angle < -45.) {
-        transpose(cropped,cropped);
-        flip(cropped,cropped,0);
-    }
+//    if (rRect.angle < -45.) {
+//        transpose(cropped,cropped);
+//        flip(cropped,cropped,0);
+//    }
 
 
-//    imshow("image_roi", image_roi);
+////    imshow("image_roi", image_roi);
 //    imshow("rotated", rotated);
-//    imshow("cropped", cropped);
+////    imshow("cropped", cropped);
 
+//    Point2f start(bRect.x,bRect.y);
 //    Point2f vertices[4];
 //    rRect.points(vertices);
 //    for (int i = 0; i < 4; i++)
-//        line(window, vertices[i], vertices[(i+1)%4], Scalar(0,255,0));
-//    rectangle(window, brect, Scalar(255,0,0));
-//    imshow("rectangles", window);
+//        line(image_roi, vertices[i]-start, vertices[(i+1)%4]-start, Scalar(0,255,0));
+//    line(image_roi, rRect.center-start, (vertices[1]+vertices[2])/2-start, Scalar(0,255,0));
+
+//    Rect a(Point2f(p.x,p.y)-Point2f(s.width/2,s.height/2)-start, s);
+//    rectangle(image_roi, a, Scalar(255,0,0));
+//    imshow("rectangles", image_roi);
 //    waitKey(0);
 
     return cropped;

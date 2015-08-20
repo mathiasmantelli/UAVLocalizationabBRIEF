@@ -20,8 +20,12 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     Mat originalMap = imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
     if(! originalMap.data )                              // Check for invalid input
     {
-        cout <<  "Could not open or find local map" << std::endl ;
-        return;
+        originalMap = imread(mapPath+"/globalmap.png",CV_LOAD_IMAGE_COLOR);
+        if(! originalMap.data )                              // Check for invalid input
+        {
+            cout <<  "Could not open or find local map" << std::endl ;
+            return;
+        }
     }
     globalMaps.push_back(originalMap);
 
@@ -41,6 +45,10 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
         switch(h->strategy)
         {
+        case CREATE_OBSERVATIONS:
+            generateObservations(trajectoryName);
+            exit(0);
+            break;
         case SSD:
 
             break;
@@ -77,7 +85,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                                     "_R" + std::to_string(int(h->radius)) +
                                     "_T" + std::to_string(h->threshold) + ".txt";
 
-            cout << "Open denity file: " << densityfilename << endl;
+            cout << "Open density file: " << densityfilename << endl;
             FILE* f = fopen(densityfilename.c_str(),"r");
             MapGrid* mg = new MapGrid(f);
             maps.push_back(mg);
@@ -110,6 +118,52 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
 DroneRobot::~DroneRobot()
 {
+}
+
+void DroneRobot::generateObservations(string path)
+{
+    // Show global map (resized to 20% of normal size).
+    Mat window;
+    double scale = 1.0/20.0;
+    resize(globalMaps[0],window,Size(0,0),scale,scale);
+    imshow( "Global Map", window );
+
+    Mat blank(window.rows, window.cols, CV_8UC3, Scalar(0));
+
+    string rawname = path.substr(0, path.find_last_of("."));
+    string imagePath = rawname+"/";
+
+    stringstream ss;
+    string tempStr;
+    int id=0;
+
+    // Read odom
+    fstream input;
+    input.open(rawname+"_odom.txt",std::fstream::in);
+    while(input.peek() != fstream::traits_type::eof()){
+        Pose p;
+        input >> p.x >> p.y >> p.theta;
+        p.theta = DEG2RAD(p.theta);
+        getline(input,tempStr);
+        cout << "x:" << p.x << " y:" << p.y << " th:" << RAD2DEG(p.theta) << endl;
+
+        circle(window,Point2f(p.x*scale,p.y*scale),10,Scalar(0,0,255));
+        imshow( "Trajectory", window );
+
+        Mat z = MCL::getParticleObservation(p,Size2f(320,240),globalMaps[0]);
+        imshow( "Observation", z );
+
+
+        // Save image
+        ss.str("");
+        ss << imagePath << setfill('0') << setw(6) << id << ".png";
+        cout << "Image: " << ss.str() << endl;
+        imwrite(ss.str(), z );
+
+        waitKey(100);
+        id++;
+    }
+
 }
 
 void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
@@ -146,12 +200,15 @@ void DroneRobot::run()
         return;
 
     // Read image
-    Mat currentMap = imread(imagesNames[step++],CV_LOAD_IMAGE_COLOR);
+    Mat currentMap = imread(imagesNames[step],CV_LOAD_IMAGE_COLOR);
     if(! currentMap.data )                              // Check for invalid input
     {
         cout <<  "Could not open or find local map" << std::endl ;
         return;
     }
+
+    cout << "Image" << step;
+    step += 1;
 
     // Create different versions of the input image
     createColorVersions(currentMap);
@@ -161,9 +218,9 @@ void DroneRobot::run()
     imshow( "Local Map", currentMap );
     waitKey(100);
 
-    if(step>1)
+    if(step>2)
         odometry_ = findOdometry(prevMap,currentMap);
-    cout << "Odometry: " << odometry_ << endl;
+//    cout << "Odometry: " << odometry_ << endl;
     prevMap = currentMap;
 
     Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
@@ -213,6 +270,12 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     cvtColor(prevImage, im1_gray, CV_BGR2GRAY);
     cvtColor(curImage, im2_gray, CV_BGR2GRAY);
 
+//    Canny(im1_gray,im1_gray,10,30,5);
+//    Canny(im2_gray,im2_gray,10,30,5);
+
+//    imshow("Canny 1", im1_gray);
+//    imshow("Canny 2", im2_gray);
+
     // Define the motion model
     const int warp_mode = MOTION_EUCLIDEAN;
 
@@ -244,23 +307,98 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
                      criteria
                  );
 
+
+    vector<Point2f> yourPoints;
+    yourPoints.push_back(Point2f(0,0));
+    yourPoints.push_back(Point2f(curImage.cols,0));
+    yourPoints.push_back(Point2f(curImage.cols,curImage.rows));
+    yourPoints.push_back(Point2f(0,curImage.rows));
+    yourPoints.push_back(Point2f(curImage.cols/2,curImage.rows/2));
+    yourPoints.push_back(Point2f(curImage.cols,curImage.rows/2));
+    yourPoints.push_back(Point2f(curImage.cols/2,0));
+
+    vector<Point2f> transformedPoints;
+    transformedPoints.resize(yourPoints.size());
+
+    Mat transf = Mat::eye(3, 3, CV_32F);
+    Mat aux = transf.colRange(0,3).rowRange(0,2);
+    warp_matrix.copyTo(aux);
+
+    perspectiveTransform(yourPoints, transformedPoints, transf.inv());
+
+    vector<Point2f> totalPoints;
+    totalPoints.reserve( yourPoints.size() + transformedPoints.size() ); // preallocate memory
+    totalPoints.insert( totalPoints.end(), yourPoints.begin(), yourPoints.end() );
+    totalPoints.insert( totalPoints.end(), transformedPoints.begin(), transformedPoints.end() );
+
+    Rect r = boundingRect(totalPoints);
+
+//    cout << "warp:" << warp_matrix << endl;
+//    cout << "transf:" << transf << endl;
+//    cout << "r:" << r.x << ' ' << r.y << endl;
+
+    Mat displ = Mat::eye(3, 3, CV_32F);
+    displ.at<float>(0,2) = -r.x;
+    displ.at<float>(1,2) = -r.y;
+    perspectiveTransform(yourPoints, yourPoints, displ);
+    perspectiveTransform(transformedPoints, transformedPoints, displ);
+
+    Mat blank(r.height, r.width, CV_8UC3, Scalar(0));
+//    waitKey(0);
+
+
     // Storage for warped image.
     Mat im2_aligned;
+    warp_matrix.at<float>(0,2) += r.x;
+    warp_matrix.at<float>(1,2) += r.y;
+//    cout << "warp2:" << warp_matrix << endl;
 
     if (warp_mode != MOTION_HOMOGRAPHY)
         // Use warpAffine for Translation, Euclidean and Affine
-        warpAffine(curImage, im2_aligned, warp_matrix, prevImage.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+        warpAffine(curImage, im2_aligned, warp_matrix, blank.size(), INTER_LINEAR + WARP_INVERSE_MAP);
     else
         // Use warpPerspective for Homography
-        warpPerspective (curImage, im2_aligned, warp_matrix, prevImage.size(),INTER_LINEAR + WARP_INVERSE_MAP);
+        warpPerspective (curImage, im2_aligned, warp_matrix, blank.size(),INTER_LINEAR + WARP_INVERSE_MAP);
+
+    // Draw aligned curImage in blank
+    blank += im2_aligned*0.5;
+
+    // Draw prevImage in blank
+    Mat aux1 = blank.colRange(-r.x,-r.x+prevImage.cols).rowRange(-r.y,-r.y+prevImage.rows);
+    Mat im1 = prevImage*0.5 + aux1;
+    im1.copyTo(aux1);
+
+    // Draw rectangles
+    for (int i = 0; i < 4; i++)
+        line(blank, yourPoints[i], yourPoints[(i+1)%4], Scalar(0,255,0));
+    for (int i = 0; i < 4; i++)
+        line(blank, transformedPoints[i], transformedPoints[(i+1)%4], Scalar(0,0,255));
+
+    // Draw arrow
+    rectangle(blank,Rect(yourPoints[4]-Point2f(2.5,2.5), Size2f(5,5)), Scalar(0,255,0));
+    circle(blank,transformedPoints[4],10,Scalar(0,0,255));
+    line(blank, yourPoints[4], transformedPoints[4], Scalar(0,0,255));
+    line(blank, transformedPoints[4], transformedPoints[5], Scalar(255,255,255));
+    line(blank, transformedPoints[4], transformedPoints[6], Scalar(255,255,255));
+
 
     // Show final result
-//    imshow("Image 1", prevImage);
-//    imshow("Image 2", curImage);
+//    namedWindow( "Image 1", WINDOW_KEEPRATIO );
+//    namedWindow( "Image 2", WINDOW_KEEPRATIO );
+//    namedWindow( "Image 2 Aligned", WINDOW_KEEPRATIO );
+//    namedWindow( "Image Blank", WINDOW_KEEPRATIO );
+    imshow("Image Blank", blank);
+    imshow("Image 1", im1_gray);
+    imshow("Image 2", im2_gray);
 //    imshow("Image 2 Aligned", im2_aligned);
-//    waitKey(0);
+//    waitKey(10);
 
-//    cout << warp_matrix << endl;
+    char k = waitKey(0);
+    if (k=='g' || k=='G')
+        cout << " GOOD odometry! :)" << endl;
+    else if (k=='b' || k=='B')
+        cout << " BAD odometry! :(" << endl;
+
 
     Pose p;
     p.x = warp_matrix.at<float>(0,2);
@@ -269,6 +407,7 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 
     return p;
 }
+
 void DroneRobot::createColorVersions(Mat& imageRGB)
 {
     // RGB
@@ -282,6 +421,7 @@ void DroneRobot::createColorVersions(Mat& imageRGB)
     mapsColorConverted[2]*=1/255.0;
     cvtColor(imageRGB, mapsColorConverted[2], CV_BGR2Lab);
 }
+
 int DroneRobot::selectMapID(int colorDiff)
 {
     switch(colorDiff)
