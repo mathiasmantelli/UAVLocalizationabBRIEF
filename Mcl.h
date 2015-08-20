@@ -21,14 +21,14 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, string technique);
+        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, string technique, Pose &initial);
         ~MCL();
 
         void draw(int x_aux, int y_aux, int halfWindowSize);
 
         vector<MCLparticle> particles;
 
-        bool run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time);
+        bool run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         vector<Mat>& globalMaps;
         GLuint imageTex;
@@ -43,6 +43,11 @@ class MCL
         double maxRange;
         Pose lastOdometry;
         string locTechnique;
+        Pose realPose;
+        Pose odomPose;
+        vector<Pose> realPath;
+        vector<Pose> odomPath;
+
 
         MapGrid* realMap;
         vector<MapGrid*>& densityMaps;

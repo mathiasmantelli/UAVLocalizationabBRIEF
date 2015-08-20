@@ -19,10 +19,10 @@
 // Métodos Públicos //
 //////////////////////
 
-MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique) :
+MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique, Pose& initial) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 500;
+    numParticles = 10;
     resamplingThreshold = 100;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -30,6 +30,8 @@ MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string techn
 
     particles.resize(numParticles);
 
+    realPose = initial;
+    odomPose = initial;
 
     std::default_random_engine generator;
 //    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
@@ -43,10 +45,13 @@ MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string techn
 
         bool valid = false;
         do{
+
             // sample particle pose
             particles[i].p.x = randomX(generator);
             particles[i].p.y = randomY(generator);
             particles[i].p.theta = randomTh(generator);
+
+            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -129,6 +134,78 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
 
+    // Draw real path
+    if(realPath.size() > 1){
+        glLineWidth(3);
+        glBegin( GL_LINE_STRIP );
+        {
+            glColor3f(0.0,0.0,1.0);
+            for(unsigned int i=0;i<realPath.size()-1; i++){
+                glVertex2f(realPath[i].x, realPath[i].y);
+                glVertex2f(realPath[i+1].x, realPath[i+1].y);
+            }
+        }
+        glEnd();
+        glLineWidth(1);
+    }
+
+    // Draw odom path
+    if(odomPath.size() > 1){
+        glLineWidth(3);
+        glBegin( GL_LINE_STRIP );
+        {
+            glColor3f(1.0,0.0,0.5);
+            for(unsigned int i=0;i<odomPath.size()-1; i++){
+                glVertex2f(odomPath[i].x, odomPath[i].y);
+                glVertex2f(odomPath[i+1].x, odomPath[i+1].y);
+            }
+        }
+        glEnd();
+        glLineWidth(1);
+    }
+
+    // Draw real pose
+    double x=realPose.x;
+    double y=realPose.y;
+    double th=realPose.theta;
+    glColor3f(0.0,0.0,1.0);
+    glPointSize(12);
+    glBegin( GL_POINTS ); // point
+    {
+        glVertex2f(x, y);
+    }
+    glEnd();
+    glColor3f(0.0, 0.0, 0.0);
+    glLineWidth(2);
+    glBegin( GL_LINES ); // direction
+    {
+        glVertex2f(x, y);
+        glVertex2f(x+cos(th)*150, y+sin(th)*150);
+    }
+    glEnd();
+    glLineWidth(1);
+
+    // Draw odom pose
+    x=odomPose.x;
+    y=odomPose.y;
+    th=odomPose.theta;
+    glColor3f(1.0,0.0,0.5);
+    glPointSize(12);
+    glBegin( GL_POINTS ); // point
+    {
+        glVertex2f(x, y);
+    }
+    glEnd();
+    glColor3f(0.0, 0.0, 0.0);
+    glLineWidth(2);
+    glBegin( GL_LINES ); // direction
+    {
+        glVertex2f(x, y);
+        glVertex2f(x+cos(th)*150, y+sin(th)*150);
+    }
+    glEnd();
+    glLineWidth(1);
+
     // Draw particles
     for(int p=0;p<particles.size();p++){
 
@@ -138,10 +215,10 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
 
 
         // Draw point
-        if(particles[p].w == 0.0)
+//        if(particles[p].w == 0.0)
             glColor3f(1.0,0.0,0.0);
-        else
-            glColor3f(1.0,1.0,0.0);
+//        else
+//            glColor3f(1.0,1.0,0.0);
 
         glPointSize(6);
         glBegin( GL_POINTS );
@@ -184,11 +261,14 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glutPostRedisplay();
 }
 
-bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time)
+bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose& real)
 {
     double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
     if(delta<1.0)
         return false;
+
+    realPose = real;
+    realPath.push_back(realPose);
 
 //    cout << "Starting MCL" << endl;
 
@@ -387,6 +467,16 @@ void MCL::sampling(Pose &u)
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
     std::uniform_real_distribution<double> randomValue(-1.0,1.0);
+
+    odomPose.x += cos(odomPose.theta)*u.x - sin(odomPose.theta)*u.y;
+    odomPose.y += sin(odomPose.theta)*u.x + cos(odomPose.theta)*u.y;
+    odomPose.theta += u.theta;
+    while(odomPose.theta > M_PI)
+        odomPose.theta -= 2*M_PI;
+    while(odomPose.theta < -M_PI)
+        odomPose.theta += 2*M_PI;
+
+    odomPath.push_back(odomPose);
 
     for(int i=0; i<particles.size(); i++){
         particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;

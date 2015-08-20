@@ -306,14 +306,14 @@ void GlutClass::keyboard(unsigned char key, int x, int y)
             break;
         case '-':
             instance->halfWindowSize += 10;
-            if((unsigned int)instance->halfWindowSize > instance->grid_->getMapWidth()/2)
-                instance->halfWindowSize = instance->grid_->getMapWidth()/2;
+//            if((unsigned int)instance->halfWindowSize > instance->grid_->getMapWidth()/2)
+//                instance->halfWindowSize = instance->grid_->getMapWidth()/2;
             break;
         case '+': 
         case '=':
             instance->halfWindowSize -= 10;
-            if(instance->halfWindowSize < instance->grid_->getMapScale())
-                instance->halfWindowSize = instance->grid_->getMapScale();
+//            if(instance->halfWindowSize < instance->grid_->getMapScale())
+//                instance->halfWindowSize = instance->grid_->getMapScale();
             break;
         default:
             break;

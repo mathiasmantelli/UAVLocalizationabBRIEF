@@ -25,10 +25,14 @@ public:
 
 private:
 
-    void generateObservations(string path);
+    void generateObservations(string imagePath);
+    bool readRawOdometryFromFile(Pose& p);
+    Pose readOdometry();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
 
-
+    bool offlineOdom;
+    Pose prevRawOdom;
+    fstream odomFile;
 
     vector<string> imagesNames;
     vector<DensityHeuristic*> heuristics;

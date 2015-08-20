@@ -39,6 +39,17 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cvtColor(labMap, labMap, CV_BGR2Lab);
     globalMaps.push_back(labMap);
 
+    // Open odometry file, if available
+    string rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
+    odomFile.open(rawname+"_odom.txt",std::fstream::in);
+    if(!odomFile.is_open()){
+        offlineOdom = false;
+    }else{
+        offlineOdom = true;
+        readRawOdometryFromFile(prevRawOdom);
+    }
+
+
     for(int i=0;i<heuristicTypes.size();++i)
     {
         heuristicType* h = heuristicTypes[i];
@@ -46,7 +57,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         switch(h->strategy)
         {
         case CREATE_OBSERVATIONS:
-            generateObservations(trajectoryName);
+            generateObservations(rawname+"/");
             exit(0);
             break;
         case SSD:
@@ -120,7 +131,7 @@ DroneRobot::~DroneRobot()
 {
 }
 
-void DroneRobot::generateObservations(string path)
+void DroneRobot::generateObservations(string imagePath)
 {
     // Show global map (resized to 20% of normal size).
     Mat window;
@@ -128,23 +139,12 @@ void DroneRobot::generateObservations(string path)
     resize(globalMaps[0],window,Size(0,0),scale,scale);
     imshow( "Global Map", window );
 
-    Mat blank(window.rows, window.cols, CV_8UC3, Scalar(0));
-
-    string rawname = path.substr(0, path.find_last_of("."));
-    string imagePath = rawname+"/";
-
     stringstream ss;
-    string tempStr;
     int id=0;
 
     // Read odom
-    fstream input;
-    input.open(rawname+"_odom.txt",std::fstream::in);
-    while(input.peek() != fstream::traits_type::eof()){
-        Pose p;
-        input >> p.x >> p.y >> p.theta;
-        p.theta = DEG2RAD(p.theta);
-        getline(input,tempStr);
+    Pose p;
+    while(readRawOdometryFromFile(p)){
         cout << "x:" << p.x << " y:" << p.y << " th:" << RAD2DEG(p.theta) << endl;
 
         circle(window,Point2f(p.x*scale,p.y*scale),10,Scalar(0,0,255));
@@ -152,7 +152,6 @@ void DroneRobot::generateObservations(string path)
 
         Mat z = MCL::getParticleObservation(p,Size2f(320,240),globalMaps[0]);
         imshow( "Observation", z );
-
 
         // Save image
         ss.str("");
@@ -186,8 +185,8 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 //    waitKey(1000);                                    // Wait for a keystroke in the window
 
     // Initialize MCL
-    string locTechnique = "density";
-    mcLocalization = new MCL(maps, globalMaps, locTechnique);
+    string locTechnique = "ssd";
+    mcLocalization = new MCL(maps, globalMaps, locTechnique, prevRawOdom);
 
     step = 0;
 
@@ -218,9 +217,16 @@ void DroneRobot::run()
     imshow( "Local Map", currentMap );
     waitKey(100);
 
-    if(step>2)
-        odometry_ = findOdometry(prevMap,currentMap);
-//    cout << "Odometry: " << odometry_ << endl;
+    if(step>1){
+        if(offlineOdom)
+            odometry_ = readOdometry();
+        else
+            odometry_ = findOdometry(prevMap,currentMap);
+    }else{
+        odometry_ = Pose(0,0,0);
+    }
+    cout << "Odometry: " << odometry_ << endl;
+
     prevMap = currentMap;
 
     Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
@@ -247,7 +253,7 @@ void DroneRobot::run()
     double time=0;
 
 
-    mcLocalization->run(odometry_, currentMap, densities, gradients,time);
+    mcLocalization->run(odometry_, currentMap, densities, gradients,time, prevRawOdom);
 
     // Navigation
     switch(motionMode_){
@@ -258,6 +264,39 @@ void DroneRobot::run()
         default:
             break;
     }
+}
+
+Pose DroneRobot::readOdometry()
+{
+    Pose newRawOdom;
+    readRawOdometryFromFile(newRawOdom);
+
+    Pose odom;
+    odom.x = newRawOdom.x - prevRawOdom.x;
+    odom.y = newRawOdom.y - prevRawOdom.y;
+    odom.theta = newRawOdom.theta - prevRawOdom.theta;
+    while(odom.theta > 180.0)
+        odom.theta -= 360.0;
+    while(odom.theta < -180.0)
+        odom.theta += 360.0;
+    odom.theta = DEG2RAD(odom.theta);
+
+    prevRawOdom = newRawOdom;
+
+    return odom;
+}
+
+bool DroneRobot::readRawOdometryFromFile(Pose& p)
+{
+   if(odomFile.peek() == fstream::traits_type::eof())
+       return false;
+
+   string tempStr;
+   odomFile >> p.x >> p.y >> p.theta;
+   getline(odomFile,tempStr);
+
+   p.theta = DEG2RAD(p.theta);
+   return true;
 }
 
 Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
@@ -423,8 +462,8 @@ void DroneRobot::createColorVersions(Mat& imageRGB)
     mapsColorConverted[2]*=1/255.0;
     cvtColor(imageRGB, mapsColorConverted[2], CV_BGR2Lab);
 
-    for (int i=0; i<mapsColorConverted.size();++i)
-        cout << mapsColorConverted[i].size() << endl;
+//    for (int i=0; i<mapsColorConverted.size();++i)
+//        cout << mapsColorConverted[i].size() << endl;
 
 }
 
