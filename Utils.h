@@ -11,6 +11,8 @@ using namespace std;
 #define DEG2RAD(a) ((a) * M_PI / 180.0)
 #define RAD2DEG(a) ((a) * 180.0 / M_PI)
 
+double getDiffAngle(double ang1, double ang2);
+
 class Pose{
     public:
         Pose();

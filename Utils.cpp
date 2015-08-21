@@ -4,6 +4,32 @@
 #include <iomanip>
 #include <errno.h>
 #include <string.h>
+#include <cmath>
+
+double getDiffAngle(double ang1, double ang2)
+{
+    // Compute diff between angles in -PI --> PI
+    double dif1 =  ang1 - ang2;
+    while(dif1 > M_PI)
+        dif1 -= M_PI;
+    while(dif1 < -M_PI)
+        dif1 += M_PI;
+
+    // Compute diff between angles in 0 --> 2*PI
+    double new360 = (ang1<0?ang1+2*M_PI:ang1);
+    double prev360 = (ang2<0?ang2+2*M_PI:ang2);
+    double dif2 = new360 - prev360;
+    while(dif2 > M_PI)
+        dif2 -= M_PI;
+    while(dif2 < -M_PI)
+        dif2 += M_PI;
+
+    if(fabs(dif1) < fabs(dif2))
+        return dif1;
+    else
+        return dif2;
+}
+
 
 /////////////////////////////////
 ///// METHODS OF CLASS POSE /////

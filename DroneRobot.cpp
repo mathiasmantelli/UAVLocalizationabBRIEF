@@ -101,15 +101,15 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             MapGrid* mg = new MapGrid(f);
             maps.push_back(mg);
 
-            Mat a(mg->getWidth(),mg->getHeight(),CV_8UC1,Scalar(0));
-            for(int hI=0; hI < mg->getWidth(); hI++)
-                for(int wI=0; wI < mg->getHeight(); wI++)
-                    if(!mg->isKnown(hI,wI))
-                        a.at<char>(hI,wI) = 255;
+//            Mat a(mg->getWidth(),mg->getHeight(),CV_8UC1,Scalar(0));
+//            for(int hI=0; hI < mg->getWidth(); hI++)
+//                for(int wI=0; wI < mg->getHeight(); wI++)
+//                    if(!mg->isKnown(hI,wI))
+//                        a.at<char>(hI,wI) = 255;
 
-            namedWindow("A",CV_WINDOW_KEEPRATIO);
-            imshow("A",a);
-            waitKey(0);
+//            namedWindow("A",CV_WINDOW_KEEPRATIO);
+//            imshow("A",a);
+//            waitKey(0);
 
             break;
         }
@@ -135,7 +135,7 @@ void DroneRobot::generateObservations(string imagePath)
 {
     // Show global map (resized to 20% of normal size).
     Mat window;
-    double scale = 1.0/20.0;
+    double scale = 1.0/5.0;
     resize(globalMaps[0],window,Size(0,0),scale,scale);
     imshow( "Global Map", window );
 
@@ -269,15 +269,13 @@ Pose DroneRobot::readOdometry()
     Pose newRawOdom;
     readRawOdometryFromFile(newRawOdom);
 
+    double deltaX = newRawOdom.x - prevRawOdom.x;
+    double deltaY = newRawOdom.y - prevRawOdom.y;
     Pose odom;
-    odom.x = newRawOdom.x - prevRawOdom.x;
-    odom.y = newRawOdom.y - prevRawOdom.y;
-    odom.theta = newRawOdom.theta - prevRawOdom.theta;
-    while(odom.theta > 180.0)
-        odom.theta -= 360.0;
-    while(odom.theta < -180.0)
-        odom.theta += 360.0;
-    odom.theta = DEG2RAD(odom.theta);
+    odom.x = cos(-prevRawOdom.theta)*deltaX - sin(-prevRawOdom.theta)*deltaY;
+    odom.y = sin(-prevRawOdom.theta)*deltaX + cos(-prevRawOdom.theta)*deltaY;
+    odom.theta = getDiffAngle(newRawOdom.theta,prevRawOdom.theta);
+//    cout << "RAW " << newRawOdom.theta << " - " << prevRawOdom.theta << " = " << odom.theta << endl;
 
     prevRawOdom = newRawOdom;
 
@@ -294,6 +292,11 @@ bool DroneRobot::readRawOdometryFromFile(Pose& p)
    getline(odomFile,tempStr);
 
    p.theta = DEG2RAD(p.theta);
+   while(p.theta > M_PI)
+       p.theta -= M_PI;
+   while(p.theta < -M_PI)
+       p.theta += M_PI;
+
    return true;
 }
 

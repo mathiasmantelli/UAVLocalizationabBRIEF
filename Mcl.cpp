@@ -263,9 +263,9 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
 
 bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose& real)
 {
-    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
-    if(delta<1.0)
-        return false;
+//    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
+//    if(delta<1.0)
+//        return false;
 
     realPose = real;
     realPath.push_back(realPose);
@@ -477,6 +477,9 @@ void MCL::sampling(Pose &u)
         odomPose.theta += 2*M_PI;
 
     odomPath.push_back(odomPose);
+
+//    cout << "Real Pose " << realPose << endl;
+//    cout << "Odom Pose " << odomPose << endl;
 
     for(int i=0; i<particles.size(); i++){
         particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
