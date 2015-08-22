@@ -50,13 +50,13 @@ string kernelName(int k)
 {
     switch(k)
     {
-    case 0:
+    case KCIRCULAR:
         return "CIRCULAR";
         break;
-    case 1:
+    case KGAUSSIAN:
         return "GAUSSIAN";
         break;
-    case 2:
+    case KANTIELIP:
         return "ANTIELIP";
         break;
     }

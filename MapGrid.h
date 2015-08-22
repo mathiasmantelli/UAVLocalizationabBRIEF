@@ -24,6 +24,8 @@ class MapGrid {
        
         int getWidth();
         int getHeight();
+        void draw();
+        void drawLine();
         
         double getFloorValue();
         double getCeilValue();

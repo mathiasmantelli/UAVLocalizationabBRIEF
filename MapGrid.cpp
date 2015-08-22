@@ -353,3 +353,34 @@ void MapGrid::smoothMap()
 //        }
 
 }
+
+void MapGrid::draw()
+{
+    Mat a(this->getWidth(),this->getHeight(),CV_8UC1,Scalar(0));
+    for(int hI=0; hI < this->getWidth(); ++hI)
+        for(int wI=0; wI < this->getHeight(); wI++)
+            a.at<char>(hI,wI) = this->getHeuristicValue(hI,wI);
+    //                    if(!mg->isKnown(hI,wI))
+    //                        a.at<char>(hI,wI) = 255;
+
+    resize(a,a,Size(0,0),0.2,0.2);
+    namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
+    imshow("Map Grid Values",a);
+    waitKey(0);
+}
+
+
+void MapGrid::drawLine()
+{
+    Mat a(this->getHeight(), this->getWidth(), CV_8UC1,Scalar(0));
+    for(int hI=0; hI < this->getWidth(); ++hI)
+        for(int wI=0; wI < this->getHeight(); wI++)
+            a.at<char>(wI, hI) = (this->getHeuristicValue(hI,wI)>100?this->getHeuristicValue(hI,wI):0);
+    //                    if(!mg->isKnown(hI,wI))
+    //                        a.at<char>(hI,wI) = 255;
+
+    resize(a,a,Size(0,0),0.2,0.2);
+    namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
+    imshow("Map Grid Values",a);
+    waitKey(0);
+}
