@@ -289,21 +289,13 @@ int main( int argc, char** argv )
         dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
     }
 
-    // Create aoutput file
-    outputName+=std::string("DENSITY") +
-            "_" + colorDifferenceName(color_difference) +
-            "_" + kernelT +
-            "_R" + std::to_string(int(radius)) +
-            "_T" + std::to_string(color_limiar) + ".txt";
-
-    cout << "Output name: " << outputName << endl;
-
     // Convert image to the appropriate format
     Mat used;
     switch(color_difference)
     {
     case INTENSITYC:
         cvtColor(image,used,CV_BGR2GRAY);
+        cvtColor(used,used,CV_GRAY2BGR);
         break;
     case CIELAB1976:
     case CIELAB1994:
@@ -324,9 +316,21 @@ int main( int argc, char** argv )
 
     cout << "Generating density map file..." << endl;
     cout << "1. Setting the limiar..." << endl;
-    //dh->setLimiarAsMeanDifference(used, map);
+
+    cout << "Output name: " << outputName << endl;
+
+    if(dh->getColorDifference()==INTENSITYC)
+        dh->setLimiarAsMeanDifference(used, map);
     //dh->setLimiar(2.3);
     cout << dh->getLimiar() << endl;
+
+    // Create aoutput file
+    outputName+=std::string("DENSITY") +
+            "_" + colorDifferenceName(color_difference) +
+            "_" + kernelT +
+            "_R" + std::to_string(int(radius)) +
+            "_T" + std::to_string(dh->getLimiar()) + ".txt";
+
 
     // initialize heristics vector
     std::vector<double> heuristics_vector(used.rows*used.cols,HEURISTIC_UNDEFINED);
@@ -377,8 +381,7 @@ int main( int argc, char** argv )
 //    file << "density" << density;
 
     Mat window;
-    resize(density,window,Size(0,0),0.1,0.1);
-
+    resize(density,window,Size(0,0),0.2,0.2);
     namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
     imshow( "Density Map", window );
     namedWindow( "Original", CV_WINDOW_KEEPRATIO );
