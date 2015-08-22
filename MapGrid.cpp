@@ -356,10 +356,10 @@ void MapGrid::smoothMap()
 
 void MapGrid::draw()
 {
-    Mat a(this->getWidth(),this->getHeight(),CV_8UC1,Scalar(0));
+    Mat a(this->getHeight(), this->getWidth(),CV_8UC1,Scalar(0));
     for(int hI=0; hI < this->getWidth(); ++hI)
         for(int wI=0; wI < this->getHeight(); wI++)
-            a.at<char>(hI,wI) = this->getHeuristicValue(hI,wI);
+            a.at<char>(wI, hI) = this->getHeuristicValue(hI,wI);
     //                    if(!mg->isKnown(hI,wI))
     //                        a.at<char>(hI,wI) = 255;
 
