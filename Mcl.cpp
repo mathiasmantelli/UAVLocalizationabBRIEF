@@ -22,8 +22,8 @@
 MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique, Pose& initial) :
     locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
 {
-    numParticles = 10;
-    resamplingThreshold = 100;
+    numParticles = 500;
+    resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
     lastOdometry.theta=0.0;
@@ -482,8 +482,8 @@ void MCL::sampling(Pose &u)
 //    cout << "Odom Pose " << odomPose << endl;
 
     for(int i=0; i<particles.size(); i++){
-        particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
-        particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*0.25;
+        particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
+        particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
         particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
         while(particles[i].p.theta > M_PI)
             particles[i].p.theta -= 2*M_PI;
@@ -495,7 +495,7 @@ void MCL::sampling(Pose &u)
 void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
 {
     double sumWeights = 0.0;
-    double var = pow(60,2.0);
+    double var = pow(25.5,2.0); //10% of 255
 
     // Evaluate all particles
     int count = 0;
@@ -512,8 +512,11 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
         }
     }
     cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
-    cout << "HEURISTIC: " << densities[0] << endl;
+//    for(int j=0;j<densities.size();++j)
+//        cout << "HEURISTIC: " << densities[j] << " ";
+//    cout << endl;
 
+//    vector<int> acounter(densities.size(),0);
     for(int i=0; i<particles.size(); i++){
         // check if particle is valid (known and not obstacle)
         if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
@@ -528,27 +531,48 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
 
         // Compute likelihood of each density
         double prob = 1.0;
+        bool ag = false;
         for(int l=0; l<densities.size(); l=l+1) {
-            if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT){
-                prob *= 1.0;
+///*** Filtering using simple 1o 0.5 probability accoding to a threshold ***/
+/// Filter out some density values
+//           if(abs((densities[l]>100?densities[l]:densities[l]) -
+//                   (densityMaps[l]->getHeuristicValue(x,y)>100 ?
+//                    densityMaps[l]->getHeuristicValue(x,y) : 0)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT)
+//           {
+/// Unfiltered densities
+//            if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 10 || densities[l]==HEURISTIC_UNDEFINED_INT){
+//                prob *= 1.0;
 //                count++;
-            }else{
-                prob *= 0.5;
-            }
+//            }else{
+//                acounter[l]++;
+//                prob *= 0.5;
+//            }
 
-//            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
-//                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(densityMaps[l]->getHeuristicValue(x,y)-densities[l],2)/var));
+/// Gaussian weighing
+            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
+                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow((densityMaps[l]->getHeuristicValue(x,y)-densities[l]),2)/var));
 
-//                if(densities[l] ==HEURISTIC_UNDEFINED_INT && densityMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
-//                    prob = 1.0;
+/// Hyperbolic secant^5 weighing
+//            if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
+//                double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
+//                prob *= (1/cosh(val*val*val*val*val));
+//            }
+
+            if(densities[l] ==HEURISTIC_UNDEFINED_INT && densityMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                    prob *= 1.0;
         }
         particles[i].w = prob;///(double)densities.size();
         sumWeights += particles[i].w;
     }
+//    cout << "Agressividade: ";
+//    for (int i=0;i<acounter.size();++i)
+//        cout << acounter[i] << " ";
+//    cout << endl;
+
     //cout <<  "Entradas: " << count << endl;
     //cout << "SumWeights A " << sumWeights << endl;
 
-    //discardInvalidDeltaAngles(u,gradients);
+    discardInvalidDeltaAngles(u,gradients);
 
     sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)
@@ -575,18 +599,26 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
 
     count = 0;
 
+    neff = 0;
+
     //normalize particles
     if(sumWeights!=0.0)
         for(int i=0; i<particles.size(); i++){
             particles[i].w /= sumWeights;
+
             if(particles[i].w == 0.0)
                 count++;
+
+            neff+=pow(particles[i].w,2.0);
         }
-    else
+    else {
         for(int i=0; i<particles.size(); i++)
             particles[i].w = 1.0/numParticles;
-
+        neff=numParticles;
+    }
     cout << "Confirmando Matei: " << count << " partículas." << endl;
+    neff=1.0/neff;
+    cout << "NEFF: " << neff << endl;
 
 }
 
@@ -644,6 +676,7 @@ void MCL::resampling()
         }
         children[i]++;
     }
+
 
     // generate children from current particles
     vector<MCLparticle> nextGeneration;

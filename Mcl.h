@@ -41,6 +41,7 @@ class MCL
         int numParticles;
         int resamplingThreshold;
         double maxRange;
+        double neff;
         Pose lastOdometry;
         string locTechnique;
         Pose realPose;
