@@ -124,6 +124,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=DENSITY;
                 else if(s.compare("CREATE")==0 || s.compare("create")==0)
                     ht->strategy=CREATE_OBSERVATIONS;
+                else if(s.compare("COLOR")==0 || s.compare("color")==0)
+                    ht->strategy=COLOR_ONLY;
                 else
                     return errorMessage(p+1, "Invalid strategy: " + s);
             } else
@@ -215,10 +217,6 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
 
 int main(int argc, char* argv[])
 {
-    /// comando: sim -p "../Dataset/Dia ensolarado"
-    /// mosaico é globalmap.jpg
-    /// lista das imagens, em ordem, no arquivo input.txt
-
     // Global variables
     connectionMode = SIMULATION;
     logMode = NONE;

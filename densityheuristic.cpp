@@ -2,7 +2,7 @@
 #include "ColorCPU.h"
 #include <iostream>
 
-string colorDifferenceName(int colorDiffID)
+std::string colorDifferenceName(int colorDiffID)
 {
     switch(colorDiffID) {
     case INTENSITYC:
@@ -25,8 +25,23 @@ string colorDifferenceName(int colorDiffID)
         return "ERROR";
     }
 }
-
-string strategyName(STRATEGY s)
+std::string kernelName(int k)
+{
+    switch(k)
+    {
+    case KCIRCULAR:
+        return "CIRCULAR";
+        break;
+    case KGAUSSIAN:
+        return "GAUSSIAN";
+        break;
+    case KANTIELIP:
+        return "ANTIELIP";
+        break;
+    }
+    return "ERROR";
+}
+std::string strategyName(STRATEGY s)
 {
     switch(s)
     {
@@ -46,22 +61,8 @@ string strategyName(STRATEGY s)
     return "ERROR";
 }
 
-string kernelName(int k)
-{
-    switch(k)
-    {
-    case KCIRCULAR:
-        return "CIRCULAR";
-        break;
-    case KGAUSSIAN:
-        return "GAUSSIAN";
-        break;
-    case KANTIELIP:
-        return "ANTIELIP";
-        break;
-    }
-    return "ERROR";
-}
+
+
 
 DensityHeuristic::DensityHeuristic(double *k, int kWidth, int kHeight, int radius, double l, unsigned int cd)  :
     radius(radius),

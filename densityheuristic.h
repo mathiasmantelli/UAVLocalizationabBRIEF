@@ -5,7 +5,6 @@
 #include "angleutil.h"
 #include "ColorCPU.h"
 #include "RadiusVolumeTransferFunctions.h"
-
 // Heuristics
 enum STRATEGY{
     SSD,
@@ -14,9 +13,6 @@ enum STRATEGY{
     DENSITY_LOCALCOLORDIFF,
     CREATE_OBSERVATIONS
 };
-string colorDifferenceName(int colorDiffID);
-string strategyName(STRATEGY s);
-string kernelName(int k);
 
 // Creating a struct for heuristic config
 struct heuristicType{
@@ -36,6 +32,10 @@ struct heuristicType{
         threshold(t)
     {}
 };
+
+std::string colorDifferenceName(int colorDiffID);
+std::string kernelName(int k);
+std::string strategyName(STRATEGY s);
 
 class DensityHeuristic : public Heuristic
 {

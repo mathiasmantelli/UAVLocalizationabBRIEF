@@ -8,9 +8,14 @@ class MCL;
 #include "Robot.h"
 #include "MapGrid.h"
 #include "GlutClass.h"
+#include "vec3.h"
 
 #include <GL/glut.h>
 #include <opencv2/core/core.hpp>
+#include "densityheuristic.h"
+#include "colorheuristic.h"
+
+
 using namespace cv;
 
 typedef struct{
@@ -21,7 +26,7 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, string technique, Pose &initial);
+        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY technique, Pose &initial, vector<ColorHeuristic*>& ssdHeuristics, vector<ColorHeuristic*>& colorHeuristics, vector<DensityHeuristic*>& densityHeuristics);
         ~MCL();
 
         void draw(int x_aux, int y_aux, int halfWindowSize);
@@ -36,14 +41,13 @@ class MCL
         static Mat getParticleObservation(Pose p, Size2f s, Mat &largeMap);
 
     private:
-        int strategyCode;
         fstream particleLog;
         int numParticles;
         int resamplingThreshold;
         double maxRange;
         double neff;
         Pose lastOdometry;
-        string locTechnique;
+        STRATEGY locTechnique;
         Pose realPose;
         Pose odomPose;
         vector<Pose> realPath;
@@ -53,10 +57,15 @@ class MCL
         MapGrid* realMap;
         vector<MapGrid*>& densityMaps;
 
+        vector<ColorHeuristic*> ssdHeuristics;
+        vector<ColorHeuristic*> colorHeuristics;
+        vector<DensityHeuristic*> densityHeuristics;
+
         void sampling(Pose &u);
 
         void weightingSSD(Mat& z_robot);
         void weightingDensity(vector<int>& densities, Pose &u, vector<double> &gradients);
+        void weightingColor();
 
         void resampling();
 

@@ -141,7 +141,7 @@ vec3 CPUColorConverter::RGB255toGrayscale(const vec3& colorRGB255)
 {
 	vec3 grayFactors = vec3(0.2989, 0.5870, 0.1140);
 	vec3 color = RGB255toNormalizedRGB(colorRGB255);
-	float gray = vec3::dot(color, grayFactors);
+    double gray = vec3::dot(color, grayFactors);
 	return vec3(gray, gray, gray); //works
 }
 void CPUColorConverter::cpuRGBtoCIELABConversion(const unsigned char *frame, std::vector<vec3> &output)

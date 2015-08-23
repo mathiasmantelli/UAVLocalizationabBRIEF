@@ -319,7 +319,7 @@ int main( int argc, char** argv )
 
     cout << "Output name: " << outputName << endl;
 
-    if(dh->getColorDifference()==INTENSITYC)
+//    if(dh->getColorDifference()==INTENSITYC)
         dh->setLimiarAsMeanDifference(used, map);
     //dh->setLimiar(2.3);
     cout << dh->getLimiar() << endl;

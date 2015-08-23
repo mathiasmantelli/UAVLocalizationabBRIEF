@@ -14,13 +14,21 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/video.hpp>
+#include "DroneRobot.h"
+#include "ColorCPU.h"
+#include "RadiusVolumeTransferFunctions.h"
 
 //////////////////////
 // Métodos Públicos //
 //////////////////////
 
-MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string technique, Pose& initial) :
-    locTechnique(technique), densityMaps(completeDensityMaps), globalMaps(gMaps)
+MCL::MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY technique, Pose &initial, vector<ColorHeuristic*>& ssdHeuristics, vector<ColorHeuristic*>& colorHeuristics, vector<DensityHeuristic*>& densityHeuristics) :
+    locTechnique(technique),
+    densityMaps(completeDensityMaps),
+    globalMaps(gMaps),
+    ssdHeuristics(ssdHeuristics),
+    colorHeuristics(colorHeuristics),
+    densityHeuristics(densityHeuristics)
 {
     numParticles = 500;
     resamplingThreshold = numParticles/8;
@@ -77,11 +85,6 @@ MCL::MCL(vector<MapGrid*>& completeDensityMaps, vector<Mat> &gMaps, string techn
     cout << logName.str() << endl; cout.flush();
     particleLog.open(logName.str().c_str(), std::fstream::out);
     particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError\n";
-
-    if(locTechnique.compare("ssd")==0)
-        strategyCode = 0;
-    else if(locTechnique.compare("density")==0)
-        strategyCode = 1;
 }
 
 MCL::~MCL()
@@ -279,10 +282,13 @@ bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients
     gettimeofday(&tstart, NULL);
 
     sampling(u);
-    if(strategyCode == 0)
+    if(locTechnique == SSD)
        weightingSSD(z);
-    if(strategyCode == 1)
+    if(locTechnique == DENSITY)
        weightingDensity(densities,u,gradients);
+    if(locTechnique == COLOR_ONLY)
+       weightingColor(); // receive color maps
+
 
     double sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)
@@ -304,7 +310,7 @@ bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients
         tend.tv_sec--;
     }
     // increment time for density due to himm cost
-    if(strategyCode == 2)
+    if(locTechnique == DENSITY)
         elapsedTime+=time;
 
     elapsedTime = ((double)tend.tv_sec - (double)tstart.tv_sec) + ((double)tend.tv_usec - (double)tstart.tv_usec)/1000000.0;
@@ -492,6 +498,46 @@ void MCL::sampling(Pose &u)
     }
 }
 
+void MCL::weightingColor()
+{
+    double sumWeights = 0.0;
+    double var = pow(3.0, 2.0); // normalized gaussian
+
+
+    for(int i=0;i<particles.size();++i)
+    {
+        double x = particles[i].p.x;
+        double y = particles[i].p.y;
+        double prob=1.0;
+
+        for(int s=0;s<colorHeuristics.size();++s)
+        {
+
+            ColorHeuristic* h = colorHeuristics[s];
+            /// compute color difference
+            int mapID = selectMapID(h->getColorDifference());
+            double diff  = h->calculateValue(int(round(x)),int(round(y)),&globalMaps[mapID]);
+
+            /// Gaussian weighing
+            if(diff!=HEURISTIC_UNDEFINED)
+                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(diff,2)/var));
+            else
+                prob *= 1.0/(numParticles);
+        }
+        // sum weights
+        particles[i].w *= prob;
+        sumWeights += particles[i].w;
+    }
+
+    //normalize particles
+    if(sumWeights!=0.0)
+        for(int i=0; i<particles.size(); i++)
+            particles[i].w /= sumWeights;
+    else
+        for(int i=0; i<particles.size(); i++)
+            particles[i].w = 1.0/numParticles;
+}
+
 void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
 {
     double sumWeights = 0.0;
@@ -559,7 +605,7 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
 //            }
 
             if(densities[l] ==HEURISTIC_UNDEFINED_INT && densityMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
-                    prob *= 1.0;
+                    prob *= 1.0/numParticles;
         }
         particles[i].w = prob;///(double)densities.size();
         sumWeights += particles[i].w;

@@ -61,13 +61,23 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             exit(0);
             break;
         case SSD:
-
+        {
+            // Create a semi void class for ssd heuristics
+            ColorHeuristic *ssdh = new ColorHeuristic(h->colorDifference, h->threshold);
+            ssdHeuristics.push_back(ssdh);
             break;
+        }
+        case COLOR_ONLY:
+        {
+            // Create and store color heuristic
+            ColorHeuristic *ch = new ColorHeuristic(h->colorDifference, h->threshold);
+            colorHeuristics.push_back(ch);
+            break;
+        }
         case DENSITY:
-
+        {
             DensityHeuristic* dh;
             double r = h->radius;
-
             // Try to create the kernel
             if(h->kernelType == KGAUSSIAN)
             {
@@ -88,7 +98,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                 dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), h->radius, h->threshold, h->colorDifference);
             }
 
-            heuristics.push_back(dh);
+            densityHeuristic.push_back(dh);
 
             string densityfilename = mapPath + "/" + strategyName(h->strategy) +
                                     "_" + colorDifferenceName(h->colorDifference) +
@@ -101,6 +111,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             MapGrid* mg = new MapGrid(f);
             maps.push_back(mg);
             break;
+        }
         }
     }
 
@@ -172,9 +183,17 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 
 //    waitKey(1000);                                    // Wait for a keystroke in the window
 
+    STRATEGY locTechnique;
     // Initialize MCL
-    string locTechnique = "density";
-    mcLocalization = new MCL(maps, globalMaps, locTechnique, prevRawOdom);
+    if(ssdHeuristics.size()>0)
+        locTechnique = SSD;
+    if(densityHeuristic.size()>0)
+        locTechnique = DENSITY;
+    if(colorHeuristics.size()>0)
+        locTechnique = COLOR_ONLY;
+
+    mcLocalization = new MCL(maps, globalMaps, locTechnique, prevRawOdom,
+                             ssdHeuristics, colorHeuristics, densityHeuristic);
 
     step = 0;
 
@@ -218,30 +237,40 @@ void DroneRobot::run()
 
     prevMap = currentMap;
 
+    // Defaut all free binary map
     Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
 
-    vector<int> densities(heuristics.size());
-    vector<double> gradients(heuristics.size());
+    vector<int> densities(densityHeuristic.size());
+    vector<double> gradients(densityHeuristic.size());
     double val=0;
     cout << "Heuristics: ";
-    for(int i=0;i<heuristics.size();++i)
+    for(int i=0;i<densityHeuristic.size();++i)
     {
         // Choose appropriate color scheme
-        int mapID = selectMapID(heuristics[i]->getColorDifference());
+        int mapID = selectMapID(densityHeuristic[i]->getColorDifference());
         // create discrete density value according to the corresonding mapgrid
-        val=heuristics[i]->calculateValue(
+        val=densityHeuristic[i]->calculateValue(
                     currentMap.cols/2, currentMap.rows/2,
                     &mapsColorConverted[mapID], &mask);
         densities[i]=maps[i]->convertToMapGridDiscrete(val);
         // and do the same for the angles
-        gradients[i]=heuristics[i]->calculateGradientSobelOrientation(
+        gradients[i]=densityHeuristic[i]->calculateGradientSobelOrientation(
                     currentMap.cols/2, currentMap.rows/2,
                     &mapsColorConverted[mapID], &mask);
         cout << densities[i] << " ";
     }
-                cout << endl;
+    cout << endl;
+
     // Obtain
     double time=0;
+
+
+    // Color ONLY
+    for(int i=0; i<colorHeuristics.size();++i)
+    {
+        int mapID = selectMapID(colorHeuristics[i]->getColorDifference());
+        colorHeuristics[i]->setBaselineColor(currentMap.cols/2, currentMap.rows/2, &mapsColorConverted[mapID]);
+    }
 
     mcLocalization->run(odometry_, currentMap, densities, gradients,time, prevRawOdom);
 
@@ -457,7 +486,7 @@ void DroneRobot::createColorVersions(Mat& imageRGB)
     cvtColor(imageRGB, mapsColorConverted[2], CV_BGR2Lab);
 }
 
-int DroneRobot::selectMapID(int colorDiff)
+int selectMapID(int colorDiff)
 {
     switch(colorDiff)
     {
@@ -477,4 +506,3 @@ int DroneRobot::selectMapID(int colorDiff)
         return 0;
     }
 }
-

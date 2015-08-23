@@ -8,6 +8,9 @@ using namespace cv;
 
 #include "Robot.h"
 #include "densityheuristic.h"
+#include "colorheuristic.h"
+
+int selectMapID(int colorDiff);
 
 class DroneRobot: public Robot
 {
@@ -18,8 +21,6 @@ public:
 
     void initialize(ConnectionMode cmode, LogMode lmode, string fname);
     void run();
-
-    int selectMapID(int colorDiff);
     void createColorVersions(Mat& imageRGB);
 
 
@@ -34,8 +35,10 @@ private:
     Pose prevRawOdom;
     fstream odomFile;
 
+    vector<ColorHeuristic*> ssdHeuristics;
+    vector<ColorHeuristic*> colorHeuristics;
     vector<string> imagesNames;
-    vector<DensityHeuristic*> heuristics;
+    vector<DensityHeuristic*> densityHeuristic;
     vector<MapGrid*> maps;
     vector<Mat> globalMaps;
     Mat prevMap;
