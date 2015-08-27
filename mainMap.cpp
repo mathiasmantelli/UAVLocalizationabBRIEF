@@ -11,6 +11,7 @@ using std::cerr;
 
 #include "SomeKernels.h"
 #include "densityheuristic.h"
+#include "miheuristic.h"
 
 using namespace cv;
 
@@ -24,9 +25,11 @@ int main( int argc, char** argv )
     std::string outputName;
     std::string diffcolor;
     int radius;
+    STRATEGY strategy;
     int color_difference=-1; // -1 to set undefined
     double color_limiar=-1.0;
-    std::vector<bool> validInput(7,false);
+    int numBins = -1;
+    std::vector<bool> validInput(8,false);
 
     int p=1;
     while(p<argc)
@@ -34,7 +37,7 @@ int main( int argc, char** argv )
         // print help
         if(!strncmp(argv[p], "-h", 2) || !strncmp(argv[p], "-H", 2))
         {
-            cout << "Usage: MapfromImage -i <path/image> -o <path/outputFile> -r radius -k kernel -d <diff-intensity|diff-rgb|diff-cie1976|diff-cmc1984|diff-cie1994|diff-cie2000|diff-cie1994mix|diff-cie2000mix> -m <path/mapimage>" << endl;
+            cout << "Usage: MapfromImage -i <path/image> -o <path/outputFile> -s strategy -r radius -k kernel -d <diff-intensity|diff-rgb|diff-cie1976|diff-cmc1984|diff-cie1994|diff-cie2000|diff-cie1994mix|diff-cie2000mix> -m <path/mapimage>" << endl;
             return 0;
         }
         // Check if this is the filename part -- step 1
@@ -197,6 +200,8 @@ int main( int argc, char** argv )
                     return -1;
                 }
 
+                numBins = color_limiar;
+
                 //increasing the string position
                 validInput[5]=true;
                 p+=2;
@@ -249,6 +254,31 @@ int main( int argc, char** argv )
                 return -1;
             }
         }
+        // Check if this is the strategy type -- step 8
+        else if(!strncmp(argv[p], "-s", 2) || !strncmp(argv[p], "-S", 2))
+        {
+            // check if there is a file name
+            if(argc>p+1)
+            {
+                // store strategy
+                std::string s(argv[p+1]);
+                if(s.compare("DENSITY")==0 || s.compare("density")==0)
+                    strategy=DENSITY;
+                else if(s.compare("ENTROPY")==0 || s.compare("entropy")==0)
+                    strategy=ENTROPY;
+                else
+                     cerr << "Invalid strategy: " << s << endl;
+
+                //increasing the string position
+                validInput[7]=true;
+                p+=2;
+            }
+            else
+            {
+                cerr << "Missing Strategy type.\nUsage: MapfromImage -i <path/image> -o <path/outputFile> -r radius -k kernel -m <path/mapimage>" << endl;
+                return -1;
+            }
+        }
         else
             p++;
     }
@@ -266,7 +296,7 @@ int main( int argc, char** argv )
     CCircular      c;
     CAntiEllipsoid a;
 
-    DensityHeuristic* dh;
+    KernelHeuristic *h;
     std::string kernelT;
 
     // Try to create the kernel
@@ -274,19 +304,29 @@ int main( int argc, char** argv )
     {
         kernelT="GAUSSIAN";
         g.initializeKernel(&r);
-        dh = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference);
+        if(strategy==DENSITY)
+            h = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference);
+        else if(strategy==ENTROPY)
+            h = new EntropyHeuristic(g.m_kernelMask, g.width(), g.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
     }
     else if(kernelType.compare("Inverted")==0 || kernelType.compare("inverted")==0)
     {
         kernelT="ANTIELIP";
         a.initializeKernel(&r);
-        dh = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference);
+        if(strategy==DENSITY)
+            h = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference);
+        else if(strategy==ENTROPY)
+            h = new EntropyHeuristic(a.m_kernelMask, a.width(), a.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
+
     }
     else if(kernelType.compare("Circular")==0 || kernelType.compare("circular")==0)
     {
         kernelT="CIRCULAR";
         c.initializeKernel(&r);
-        dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
+        if(strategy==DENSITY)
+            h = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
+        else if(strategy==ENTROPY)
+            h = new EntropyHeuristic(c.m_kernelMask, c.width(), c.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
     }
 
     // Convert image to the appropriate format
@@ -313,45 +353,69 @@ int main( int argc, char** argv )
         break;
     }
 
-
-    cout << "Generating density map file..." << endl;
-    cout << "1. Setting the limiar..." << endl;
-
-    cout << "Output name: " << outputName << endl;
-
-//    if(dh->getColorDifference()==INTENSITYC)
-        dh->setLimiarAsMeanDifference(used, map);
-    //dh->setLimiar(2.3);
-    cout << dh->getLimiar() << endl;
-
-    // Create aoutput file
-    outputName+=std::string("DENSITY") +
-            "_" + colorDifferenceName(color_difference) +
-            "_" + kernelT +
-            "_R" + std::to_string(int(radius)) +
-            "_T" + std::to_string(dh->getLimiar()) + ".txt";
-
-
-    // initialize heristics vector
+    // initialize heuristics vector
     std::vector<double> heuristics_vector(used.rows*used.cols,HEURISTIC_UNDEFINED);
-    cout << "2. computing density values: this will take a very long time for large kernels..." << endl;
+    fstream stream;
 
-    for(int y=dh->getRadius();y<used.rows-dh->getRadius();++y)
-    for(int x=dh->getRadius();x<used.cols-dh->getRadius();++x)
+    if(strategy==DENSITY){
+        cout << "Generating density map file..." << endl;
+
+        cout << "0. Setting the limiar..." << endl;
+        cout << "Output name: " << outputName << endl;
+
+        DensityHeuristic* dh = (DensityHeuristic*) h;
+    //    if(dh->getColorDifference()==INTENSITYC)
+            dh->setLimiarAsMeanDifference(used, map);
+        //dh->setLimiar(2.3);
+        cout << h->getLimiar() << endl;
+
+        // Create output file
+        outputName+=std::string("DENSITY") +
+                "_" + colorDifferenceName(color_difference) +
+                "_" + kernelT +
+                "_R" + std::to_string(int(radius)) +
+                "_T" + std::to_string(h->getLimiar()) + ".txt";
+
+    }else if(strategy==ENTROPY){
+        cout << "Generating entropy map file..." << endl;
+
+        // Create output file
+        outputName+=std::string("ENTROPY") +
+                "_" + colorDifferenceName(color_difference) +
+                "_" + kernelT +
+                "_R" + std::to_string(int(radius)) +
+                "_B" + std::to_string(numBins) + ".txt";
+    }
+
+    cout << "1. computing values: this will take a very long time for large kernels..." << endl;
+
+    for(int y=h->getRadius();y<used.rows-h->getRadius();++y){
+        for(int x=h->getRadius();x<used.cols-h->getRadius();++x)
         {
             // check free region
-            vec3 pos(dh->getValuefromPixel(x,y,&map));
+            vec3 pos(h->getValuefromPixel(x,y,&map));
             vec3 free(0.0, 0.0, 0.0);
             if(pos==free)
-                heuristics_vector[y*used.cols+x]=dh->calculateValue(x,y,&used,&map);
+                heuristics_vector[y*used.cols+x]=h->calculateValue(x,y,&used,&map);
             else
                 heuristics_vector[y*used.cols+x]=HEURISTIC_UNDEFINED;
         }
-    cout << "3. Storing width, height, kernel type, radius, color-difference, and limiar" << endl;
-    fstream stream;
-    stream.open(outputName.data(), std::fstream::out);
-    stream << used.cols << " " << used.rows << " " << kernelType << " "
-           << dh->getRadius() << " " << color_difference << " " << dh->getLimiar() << endl;
+        if(y%8==0)
+            cout << "\r" << y*100/used.rows << "%" << flush;
+    }
+    cout << "\r100%" << endl;
+
+    if(strategy==DENSITY){
+        cout << "2. Storing width, height, kernel type, radius, color-difference, and limiar" << endl;
+        stream.open(outputName.data(), std::fstream::out);
+        stream << used.cols << " " << used.rows << " " << kernelType << " "
+               << h->getRadius() << " " << color_difference << " " << h->getLimiar() << endl;
+    }else if(strategy==ENTROPY){
+        cout << "2. Storing width, height, kernel type, radius, color-difference, and numBins" << endl;
+        stream.open(outputName.data(), std::fstream::out);
+        stream << used.cols << " " << used.rows << " " << kernelType << " "
+               << h->getRadius() << " " << color_difference << " " << numBins << endl;
+    }
 
     // Storing data file...
     for(int yI = 0; yI < used.rows; ++yI)
@@ -373,7 +437,7 @@ int main( int argc, char** argv )
 
 // Stores a gigantic image for some unknown reason
 //    // Write to file!CV_WINDOW_AUTOSIZE
-    Mat density(used.rows, used.cols, CV_64FC1, &heuristics_vector[0]);
+    Mat values(used.rows, used.cols, CV_64FC1, &heuristics_vector[0]);
 //    //resize(density, density, Size(used.cols, used.rows));
 
 //    // Declare what you need
@@ -381,9 +445,14 @@ int main( int argc, char** argv )
 //    file << "density" << density;
 
     Mat window;
-    resize(density,window,Size(0,0),0.2,0.2);
-    namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
-    imshow( "Density Map", window );
+    resize(values,window,Size(0,0),0.2,0.2);
+    if(strategy==DENSITY){
+        namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
+        imshow( "Density Map", window );
+    }else if(strategy==ENTROPY){
+        namedWindow( "Entropy Map", CV_WINDOW_KEEPRATIO );
+        imshow( "Entropy Map", window );
+    }
     namedWindow( "Original", CV_WINDOW_KEEPRATIO );
     imshow( "Original", image );
     namedWindow( "Map", CV_WINDOW_KEEPRATIO );

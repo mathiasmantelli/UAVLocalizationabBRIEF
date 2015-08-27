@@ -8,19 +8,10 @@
 class ColorHeuristic : public Heuristic
 {
 public:
-    ColorHeuristic(int cd, double limiar);
+    ColorHeuristic(STRATEGY s, int cd, double limiar);
     double calculateValue(int x, int y, Mat *image, Mat *map=NULL);
-    double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat *map);
-    double calculateGradientOrientation(int x, int y, Mat *image, Mat *map);
-
-    // Get methods
-    vec3 getValuefromPixel(int x, int y, Mat *image);
-    double getLimiar();
-    int getColorDifference();
 
     // set methods
-    void setLimiar(double val);
-    void setColorDifference(double val);
     void setBaselineColor(int x, int y, Mat *image);
     void setTestedColor(int x, int y, Mat *image); // receives rgb image
 
@@ -29,11 +20,7 @@ public:
     vec3 testedColor;
 private:
     // Image density stuff
-    double limiar;
-    unsigned int color_difference;
     CPUColorConverter convert;
-
-
 };
 
 #endif // COLORHEURISTIC_H

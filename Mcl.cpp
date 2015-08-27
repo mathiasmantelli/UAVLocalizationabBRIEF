@@ -30,7 +30,7 @@ MCL::MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY te
     colorHeuristics(colorHeuristics),
     densityHeuristics(densityHeuristics)
 {
-    numParticles = 500;
+    numParticles = 10;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -59,7 +59,7 @@ MCL::MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY te
             particles[i].p.y = randomY(generator);
             particles[i].p.theta = randomTh(generator);
 
-            particles[i].p=initial;
+//            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -541,7 +541,7 @@ void MCL::weightingColor()
 void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
 {
     double sumWeights = 0.0;
-    double var = pow(25.5,2.0); //10% of 255
+    double var = pow(51.5,2.0); //10% of 255
 
     // Evaluate all particles
     int count = 0;
@@ -839,6 +839,35 @@ double MCL::sumAngles(double a, double b)
     // error in radians
     return c;
 
+}
+
+Mat MCL::rotateImage(Mat& input, double angle)
+{
+    Point2f origCenter(input.cols/2,input.rows/2);
+    RotatedRect rRect = RotatedRect(origCenter, input.size(), angle);
+    Rect bRect = rRect.boundingRect();
+
+    vector<Point2f> boundaries;
+    boundaries.push_back(Point2f(bRect.x,bRect.y));
+    boundaries.push_back(Point2f(bRect.x+bRect.width,bRect.y+bRect.height));
+    boundaries.push_back(Point2f(0,0));
+    boundaries.push_back(Point2f(input.cols,input.rows));
+    bRect = boundingRect(boundaries);
+
+    Mat source(bRect.height, bRect.width, CV_8UC3, Scalar(0));
+    Point2f center(source.cols/2, source.rows/2);
+
+    Mat aux = source.colRange(center.x - origCenter.x, center.x + origCenter.x).rowRange(center.y - origCenter.y, center.y + origCenter.y);
+    input.copyTo(aux);
+
+    // get the rotation matrix
+    Mat M = getRotationMatrix2D(center, angle, 1.0);
+
+    // perform the affine transformation
+    Mat rotated;
+    warpAffine(source, rotated, M, source.size(), INTER_CUBIC);
+
+    return rotated;
 }
 
 Mat MCL::getParticleObservation(Pose p, Size2f s, Mat& largeMap)

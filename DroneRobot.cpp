@@ -56,62 +56,65 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
         switch(h->strategy)
         {
-        case CREATE_OBSERVATIONS:
-            generateObservations(rawname+"/");
-            exit(0);
-            break;
-        case SSD:
-        {
-            // Create a semi void class for ssd heuristics
-            ColorHeuristic *ssdh = new ColorHeuristic(h->colorDifference, h->threshold);
-            ssdHeuristics.push_back(ssdh);
-            break;
-        }
-        case COLOR_ONLY:
-        {
-            // Create and store color heuristic
-            ColorHeuristic *ch = new ColorHeuristic(h->colorDifference, h->threshold);
-            colorHeuristics.push_back(ch);
-            break;
-        }
-        case DENSITY:
-        {
-            DensityHeuristic* dh;
-            double r = h->radius;
-            // Try to create the kernel
-            if(h->kernelType == KGAUSSIAN)
+            case TEMPLATE_MATCHING:
+                locTechnique = TEMPLATE_MATCHING;
+                break;
+            case CREATE_OBSERVATIONS:
+                generateObservations(rawname+"/");
+                exit(0);
+                break;
+            case SSD:
             {
-                CGaussianC     g;
-                g.initializeKernel(&r);
-                dh = new DensityHeuristic(g.m_kernelMask, g.width(), g.height(), h->radius, h->threshold, h->colorDifference);
+                // Create a semi void class for ssd heuristics
+                ColorHeuristic *ssdh = new ColorHeuristic(COLOR_ONLY, h->colorDifference, h->threshold);
+                ssdHeuristics.push_back(ssdh);
+                break;
             }
-            else if(h->kernelType == KANTIELIP)
+            case COLOR_ONLY:
             {
-                CAntiEllipsoid a;
-                a.initializeKernel(&r);
-                dh = new DensityHeuristic(a.m_kernelMask, a.width(), a.height(), h->radius, h->threshold, h->colorDifference);
+                // Create and store color heuristic
+                ColorHeuristic *ch = new ColorHeuristic(COLOR_ONLY, h->colorDifference, h->threshold);
+                colorHeuristics.push_back(ch);
+                break;
             }
-            else if(h->kernelType == KCIRCULAR)
+            case DENSITY:
             {
-                CCircular      c;
-                c.initializeKernel(&r);
-                dh = new DensityHeuristic(c.m_kernelMask, c.width(), c.height(), h->radius, h->threshold, h->colorDifference);
+                DensityHeuristic* dh;
+                double r = h->radius;
+                // Try to create the kernel
+                if(h->kernelType == KGAUSSIAN)
+                {
+                    CGaussianC     g;
+                    g.initializeKernel(&r);
+                    dh = new DensityHeuristic(DENSITY,g.m_kernelMask, g.width(), g.height(), h->radius, h->threshold, h->colorDifference);
+                }
+                else if(h->kernelType == KANTIELIP)
+                {
+                    CAntiEllipsoid a;
+                    a.initializeKernel(&r);
+                    dh = new DensityHeuristic(DENSITY,a.m_kernelMask, a.width(), a.height(), h->radius, h->threshold, h->colorDifference);
+                }
+                else if(h->kernelType == KCIRCULAR)
+                {
+                    CCircular      c;
+                    c.initializeKernel(&r);
+                    dh = new DensityHeuristic(DENSITY,c.m_kernelMask, c.width(), c.height(), h->radius, h->threshold, h->colorDifference);
+                }
+
+                densityHeuristic.push_back(dh);
+
+                string densityfilename = mapPath + "/" + strategyName(h->strategy) +
+                                        "_" + colorDifferenceName(h->colorDifference) +
+                                        "_" + kernelName(h->kernelType) +
+                                        "_R" + std::to_string(int(h->radius)) +
+                                        "_T" + std::to_string(h->threshold) + ".txt";
+
+                cout << "Open density file: " << densityfilename << endl;
+                FILE* f = fopen(densityfilename.c_str(),"r");
+                MapGrid* mg = new MapGrid(f);
+                maps.push_back(mg);
+                break;
             }
-
-            densityHeuristic.push_back(dh);
-
-            string densityfilename = mapPath + "/" + strategyName(h->strategy) +
-                                    "_" + colorDifferenceName(h->colorDifference) +
-                                    "_" + kernelName(h->kernelType) +
-                                    "_R" + std::to_string(int(h->radius)) +
-                                    "_T" + std::to_string(h->threshold) + ".txt";
-
-            cout << "Open density file: " << densityfilename << endl;
-            FILE* f = fopen(densityfilename.c_str(),"r");
-            MapGrid* mg = new MapGrid(f);
-            maps.push_back(mg);
-            break;
-        }
         }
     }
 
@@ -183,7 +186,6 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 
 //    waitKey(1000);                                    // Wait for a keystroke in the window
 
-    STRATEGY locTechnique;
     // Initialize MCL
     if(ssdHeuristics.size()>0)
         locTechnique = SSD;
@@ -200,6 +202,47 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
     ready_ = true;
 }
 
+void computeEntropyMap(Mat& image_orig, Mat& mask)
+{
+    Mat image;
+    image = image_orig;
+//    resize(image_orig,image,Size(0,0),0.5,0.5);
+
+    image.convertTo(image,CV_32F);
+    image *= 1.0/255.0;
+    cvtColor(image, image, CV_BGR2Lab);
+
+//    cvtColor(image, image, CV_BGR2GRAY);
+//    cvtColor(image, image, CV_GRAY2BGR);
+    imshow("input",image);
+//    waitKey(0);
+
+    Mat entropyMap(image.rows, image.cols, CV_64F, Scalar(0.0));
+
+    double r = 10;
+    double l = 2.3;
+    int cd = CIELAB1976;
+    unsigned int bins = 22;
+    CGaussianC     g;
+    g.initializeKernel(&r);
+    EntropyHeuristic *eih = new EntropyHeuristic(ENTROPY, g.m_kernelMask, g.width(), g.height(), r, l, cd, bins);
+
+    cout << "Computing entropy " << endl;
+
+    for(int x=0; x<image.cols; ++x){
+        for(int y=0; y<image.rows; ++y){
+            entropyMap.at<double>(y,x) = eih->calculateValue(x,y,&image,&mask);
+        }
+        if(x%8==0)
+            cout << "\r" << x*100/image.cols << "%" << flush;
+    }
+    cout << "\r100%" << endl;
+
+    imshow("entropy",entropyMap);
+
+    waitKey(0);
+}
+
 void DroneRobot::run()
 {
     if(step >= imagesNames.size())
@@ -213,17 +256,76 @@ void DroneRobot::run()
         return;
     }
 
-    cout << "Image" << step;
-    step += 1;
-
-    // Create different versions of the input image
-    createColorVersions(currentMap);
-
-
 //    Mat window;
 //    resize(currentMap,window,Size(0,0),0.2,0.2);
     imshow( "Local Map", currentMap );
     waitKey(100);
+
+    cout << "Image" << step << ' ';
+    step += 1;
+
+    // Defaut all free binary map
+    Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
+    Mat whiteMask(currentMap.rows, currentMap.cols, CV_8UC3, Scalar(255,255,255));
+
+    computeEntropyMap(currentMap, mask);
+
+    return;
+
+    if(locTechnique == TEMPLATE_MATCHING){
+        cout << "Templatão" << endl;
+
+        for(int angle=360; angle>=0; angle-=10){
+
+            Mat templ = MCL::rotateImage(currentMap,angle);
+            Mat mask = MCL::rotateImage(whiteMask,angle);
+            imshow( "Local Map", templ );
+            imshow( "Mask", mask );
+
+            /// Source image to display
+            Mat img_display;
+            globalMaps[0].copyTo( img_display );
+
+            /// Create the result matrix
+            int result_cols =  globalMaps[0].cols - templ.cols + 1;
+            int result_rows = globalMaps[0].rows - templ.rows + 1;
+
+            /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
+            int match_method = CV_TM_CCORR_NORMED;
+
+            Mat result;
+            result.create( result_rows, result_cols, CV_32FC1 );
+
+            matchTemplate( globalMaps[0], templ, result, match_method, mask );
+
+            /// Localizing the best match with minMaxLoc
+            double minVal; double maxVal; Point minLoc; Point maxLoc;
+            Point matchLoc;
+
+            minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
+
+            /// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
+            if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
+              { matchLoc = minLoc; }
+            else
+              { matchLoc = maxLoc; }
+
+            /// Show me what you got
+            rectangle( img_display, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
+            rectangle( result, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
+
+            resize(img_display,img_display,Size(0,0),0.2,0.2);
+            imshow( "image_window", img_display );
+            resize(result,result,Size(0,0),0.2,0.2);
+            imshow( "result", result);
+            waitKey(0);
+        }
+
+        return;
+    }
+
+    // Create different versions of the input image
+    createColorVersions(currentMap);
 
     if(step>1){
         if(offlineOdom)
@@ -237,8 +339,7 @@ void DroneRobot::run()
 
     prevMap = currentMap;
 
-    // Defaut all free binary map
-    Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
+//    return;
 
     vector<int> densities(densityHeuristic.size());
     vector<double> gradients(densityHeuristic.size());
@@ -370,6 +471,26 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
                      criteria
                  );
 
+    // Check quality of matching
+    Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
+    Mat mask;
+    warpAffine(whiteMask, mask, warp_matrix, whiteMask.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+
+    Mat templ(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
+    warpAffine(curImage, templ, warp_matrix, curImage.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+//    imshow("Mask", mask);
+//    imshow("Aligned", templ);
+
+    /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
+    int match_method = CV_TM_CCORR_NORMED;
+
+    Mat result;
+    result.create( 1, 1, CV_32FC1 );
+
+    matchTemplate( prevImage, templ, result, match_method, mask );
+    double w = result.at<float>(0,0);
+    cout << "ODOMETRIA " << (w>0.96?"BOA":"RUIM") << " MANO (" << w << ")" << endl;
+
 
     vector<Point2f> yourPoints;
     yourPoints.push_back(Point2f(0,0));
@@ -456,7 +577,7 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    imshow("Image 2 Aligned", im2_aligned);
 //    waitKey(10);
 
-    char k = waitKey(0);
+    char k = waitKey(20);
     if (k=='g' || k=='G')
         cout << " GOOD odometry! :)" << endl;
     else if (k=='b' || k=='B')

@@ -5,14 +5,6 @@
 #include "angleutil.h"
 #include "ColorCPU.h"
 #include "RadiusVolumeTransferFunctions.h"
-// Heuristics
-enum STRATEGY{
-    SSD,
-    COLOR_ONLY,
-    DENSITY,
-    DENSITY_LOCALCOLORDIFF,
-    CREATE_OBSERVATIONS
-};
 
 // Creating a struct for heuristic config
 struct heuristicType{
@@ -37,13 +29,11 @@ std::string colorDifferenceName(int colorDiffID);
 std::string kernelName(int k);
 std::string strategyName(STRATEGY s);
 
-class DensityHeuristic : public Heuristic
+class DensityHeuristic : public KernelHeuristic
 {
 public:
-    DensityHeuristic(double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC);
+    DensityHeuristic(STRATEGY s, double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC);
     double calculateValue(int x, int y, Mat *image, Mat* map);
-    double calculateGradientOrientation(int x, int y, Mat *image, Mat* map);
-    double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map);
 
     vec3 calculateMeanColor(Mat &image, Mat &map);
     double calculateMeanDifference(Mat &image, Mat &map);
@@ -51,27 +41,9 @@ public:
 
     double sech5(double val);
 
-    // get values
-    vec3 getValuefromPixel(int x, int y, Mat *image);
-    double getRadius();
-    double getLimiar();
-    int getColorDifference();
-
-    // set values
-    void setLimiar(double val);
-
-
 private:
 
-
-    int radius;
-    double *kernel;
-    int kWidth;
-    int kHeight;
-
     // Image density stuff
-    double limiar;
-    unsigned int color_difference;
     CPUColorConverter convert;
     vec3 color_mean;
     vec3 color_stdev;

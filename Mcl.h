@@ -39,6 +39,7 @@ class MCL
         GLuint imageTex;
 
         static Mat getParticleObservation(Pose p, Size2f s, Mat &largeMap);
+        static Mat rotateImage(Mat& input, double angle);
 
     private:
         fstream particleLog;

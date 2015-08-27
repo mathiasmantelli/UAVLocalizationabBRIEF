@@ -9,6 +9,7 @@ using namespace cv;
 #include "Robot.h"
 #include "densityheuristic.h"
 #include "colorheuristic.h"
+#include "miheuristic.h"
 
 int selectMapID(int colorDiff);
 
@@ -35,14 +36,20 @@ private:
     Pose prevRawOdom;
     fstream odomFile;
 
+    STRATEGY locTechnique;
+
+    // Heuristics vectors
     vector<ColorHeuristic*> ssdHeuristics;
     vector<ColorHeuristic*> colorHeuristics;
-    vector<string> imagesNames;
     vector<DensityHeuristic*> densityHeuristic;
-    vector<MapGrid*> maps;
+
     vector<Mat> globalMaps;
-    Mat prevMap;
     vector<Mat> mapsColorConverted;
+    vector<string> imagesNames;
+
+    vector<MapGrid*> maps;
+
+    Mat prevMap;
 
     unsigned int step;
 

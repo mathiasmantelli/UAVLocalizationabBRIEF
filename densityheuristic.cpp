@@ -61,23 +61,12 @@ std::string strategyName(STRATEGY s)
     return "ERROR";
 }
 
-
-
-
-DensityHeuristic::DensityHeuristic(double *k, int kWidth, int kHeight, int radius, double l, unsigned int cd)  :
-    radius(radius),
-    kernel(NULL),
-    kWidth(kWidth),
-    kHeight(kHeight),
-    limiar(l),
-    color_difference(cd),
-    convert(),
-    color_mean(),
-    color_stdev(),
-    mean_diff(-1.0) // set as negative --> undefined
+DensityHeuristic::DensityHeuristic(STRATEGY s, double *k, int kW, int kH, int rad, double l, unsigned int cd):
+KernelHeuristic(s,l,cd,rad,k,kW,kH)
 {
-    this->kernel = new double[kWidth*kHeight];
-    memcpy(this->kernel, k, sizeof(double)*kWidth*kHeight);
+    color_mean.set(0.0,0.0,0.0);
+    color_stdev.set(0.0,0.0,0.0);
+    mean_diff = -1.0; // set as negative --> undefined
 }
 
 double DensityHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
@@ -184,53 +173,6 @@ vec3 DensityHeuristic::calculateMeanColor(Mat &image, Mat& map)
     return color_mean;
 }
 
-// Apply mask
-double DensityHeuristic::calculateGradientOrientation(int xCenter, int yCenter, Mat *image, Mat *map)
-{
-    // The direction of the
-    double l = calculateValue(xCenter-1, yCenter, image, map);
-    double r = calculateValue(xCenter+1, yCenter, image, map);
-    double u = calculateValue(xCenter, yCenter+1, image, map);
-    double d = calculateValue(xCenter, yCenter-1, image, map);
-
-    if(IS_UNDEF(l) || IS_UNDEF(r) || IS_UNDEF(u) || IS_UNDEF(d))
-        return HEURISTIC_UNDEFINED;
-
-    double dx = r-l;
-    double dy = u-d;
-
-    if(fabs(dy) < 0.00001 && fabs(dx) < 0.00001)
-        return HEURISTIC_UNDEFINED;
-
-    return  atan2(dy, dx); //radians
-}
-
-double DensityHeuristic::calculateGradientSobelOrientation(int xCenter, int yCenter, Mat *image, Mat *map)
-{
-    // The direction of the
-    double l  = calculateValue(xCenter-1, yCenter,   image, map);
-    double r  = calculateValue(xCenter+1, yCenter,   image, map);
-    double u  = calculateValue(xCenter,   yCenter+1, image, map);
-    double d  = calculateValue(xCenter,   yCenter-1, image, map);
-    double lu = calculateValue(xCenter-1, yCenter+1, image, map);
-    double ru = calculateValue(xCenter+1, yCenter+1, image, map);
-    double ld = calculateValue(xCenter-1, yCenter-1, image, map);
-    double rd = calculateValue(xCenter+1, yCenter-1, image, map);
-
-    if(IS_UNDEF(l) || IS_UNDEF(r) || IS_UNDEF(u) || IS_UNDEF(d) ||
-       IS_UNDEF(lu) || IS_UNDEF(ru) || IS_UNDEF(ld) || IS_UNDEF(rd))
-        return HEURISTIC_UNDEFINED;
-
-    double dx = ru + 2*r + rd - lu - 2*l - ld;
-    double dy = lu + 2*u + ru - ld - 2*d - rd;
-
-    if(fabs(dy) < 0.00001 && fabs(dx) < 0.00001)
-        return HEURISTIC_UNDEFINED;
-
-    return atan2(dy, dx); //radians
-}
-
-
 double DensityHeuristic::calculateMeanDifference(Mat &image, Mat& map)
 {
     // update color_mean    int getColorDifference();
@@ -292,46 +234,3 @@ void DensityHeuristic::setLimiarAsMeanDifference(Mat &image, Mat &map)
     limiar = mean_diff;
 }
 
-vec3 DensityHeuristic::getValuefromPixel(int x, int y, Mat *image)
-{
-    if(image->type() != CV_32FC3)
-    {
-        Vec3b color = image->at<Vec3b>(y,x);
-        double r = color[0];
-        double g = color[1];
-        double b = color[2];
-
-        vec3 V(r, g, b);
-
-        return V;
-    }
-
-    Vec3f color = image->at<Vec3f>(y,x);
-    vec3 c(color[0], color[1], color[2]);
-    return c;
-}
-double DensityHeuristic::getRadius()
-{
-    return radius;
-}
-
-double DensityHeuristic::getLimiar()
-{
-    return limiar;
-}
-
-void DensityHeuristic::setLimiar(double val)
-{
-    if(val<0)
-    {
-        // error value is stupid, setting default
-        cerr << val << " is not valid, setting threshold to standard value" << endl;
-        limiar = 5.0;
-    }
-    else
-        limiar = val;
-}
-int DensityHeuristic::getColorDifference()
-{
-    return color_difference;
-}

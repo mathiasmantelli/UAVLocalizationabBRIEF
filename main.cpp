@@ -124,8 +124,14 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=DENSITY;
                 else if(s.compare("CREATE")==0 || s.compare("create")==0)
                     ht->strategy=CREATE_OBSERVATIONS;
+                else if(s.compare("TEMPLATE")==0 || s.compare("template")==0)
+                    ht->strategy=TEMPLATE_MATCHING;
                 else if(s.compare("COLOR")==0 || s.compare("color")==0)
                     ht->strategy=COLOR_ONLY;
+                else if(s.compare("ENTROPY")==0 || s.compare("entropy")==0)
+                    ht->strategy=ENTROPY;
+                else if(s.compare("MI")==0 || s.compare("mi")==0)
+                    ht->strategy=MUTUAL_INFORMATION;
                 else
                     return errorMessage(p+1, "Invalid strategy: " + s);
             } else
@@ -171,7 +177,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             p+=4;
 
             // Check if we must check for kernel data
-            if(ht->strategy==DENSITY)
+            if(ht->strategy==DENSITY || ht->strategy==ENTROPY || ht->strategy==MUTUAL_INFORMATION)
             {
                 if(argc>=p+1) {
 

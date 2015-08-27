@@ -25,6 +25,8 @@ SOURCES += \
     vec4.cpp \
     angleutil.cpp \
     densityheuristic.cpp \
+    miheuristic.cpp \
+    Heuristic.cpp \
     MapGrid.cpp \
     mainMap.cpp
 
@@ -39,6 +41,7 @@ HEADERS += \
     RadiusVolumeTransferFunctions.h \
     angleutil.h \
     Heuristic.h \
+    miheuristic.h \
     densityheuristic.h \
     MapGrid.h
 

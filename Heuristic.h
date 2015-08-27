@@ -11,6 +11,8 @@ using namespace cv;
 #include <climits>
 #include <float.h>
 
+#include "ColorCPU.h"
+
 #define HEURISTIC_UNDEFINED -DBL_MAX
 #define HEURISTIC_UNDEFINED_INT INT_MIN
 #define QUANTIZATION_LEVELS 255
@@ -18,14 +20,56 @@ using namespace cv;
 //#define IS_UNDEF(X) fabs(X - HEURISTIC_UNDEFINED) < 0.00001
 #define IS_UNDEF(X) (X == HEURISTIC_UNDEFINED)
 
-class MapGrid;
+// Heuristics
+enum STRATEGY{
+    SSD,
+    COLOR_ONLY,
+    ENTROPY,
+    MUTUAL_INFORMATION,
+    DENSITY,
+    DENSITY_LOCALCOLORDIFF,
+    CREATE_OBSERVATIONS,
+    TEMPLATE_MATCHING
+};
 
 class Heuristic
 {
-    public:
-        virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
-        virtual double calculateGradientOrientation(int x, int y, Mat *image, Mat* map) = 0;
-        virtual double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map) = 0;
+public:
+    Heuristic(STRATEGY s, double l, unsigned int cd);
+
+    virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
+
+    double calculateGradientOrientation(int x, int y, Mat *image, Mat* map);
+    double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map);
+
+    double getLimiar();
+    int getColorDifference();
+    void setLimiar(double val);
+    void setColorDifference(double val);
+
+    vec3 getValuefromPixel(int x, int y, Mat *image);
+
+protected:
+    STRATEGY type;
+    double limiar;
+    unsigned int color_difference;
+};
+
+class KernelHeuristic : public Heuristic
+{
+public:
+    KernelHeuristic(STRATEGY s, double l, unsigned int cd, int rad, double* k, int kW, int kH);
+
+    virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
+
+    double getRadius();
+
+protected:
+
+    int radius;
+    double *kernel;
+    int kWidth;
+    int kHeight;
 };
 
 #endif
