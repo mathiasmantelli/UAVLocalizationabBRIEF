@@ -49,73 +49,93 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         readRawOdometryFromFile(prevRawOdom);
     }
 
-
+    // Initialize heuristics
     for(int i=0;i<heuristicTypes.size();++i)
     {
-        heuristicType* h = heuristicTypes[i];
+        heuristicType* hT = heuristicTypes[i];
+        Heuristic* heur = NULL;
+        MapGrid* mg = NULL;
 
-        switch(h->strategy)
+        int id=getNextProperHeuristicID(hT->strategy);
+
+        if(hT->strategy == TEMPLATE_MATCHING)
         {
-            case TEMPLATE_MATCHING:
-                locTechnique = TEMPLATE_MATCHING;
-                break;
-            case CREATE_OBSERVATIONS:
-                generateObservations(rawname+"/");
-                exit(0);
-                break;
-            case SSD:
-            {
-                // Create a semi void class for ssd heuristics
-                ColorHeuristic *ssdh = new ColorHeuristic(COLOR_ONLY, h->colorDifference, h->threshold);
-                ssdHeuristics.push_back(ssdh);
-                break;
-            }
-            case COLOR_ONLY:
-            {
-                // Create and store color heuristic
-                ColorHeuristic *ch = new ColorHeuristic(COLOR_ONLY, h->colorDifference, h->threshold);
-                colorHeuristics.push_back(ch);
-                break;
-            }
-            case DENSITY:
-            {
-                DensityHeuristic* dh;
-                double r = h->radius;
-                // Try to create the kernel
-                if(h->kernelType == KGAUSSIAN)
-                {
-                    CGaussianC     g;
-                    g.initializeKernel(&r);
-                    dh = new DensityHeuristic(DENSITY,g.m_kernelMask, g.width(), g.height(), h->radius, h->threshold, h->colorDifference);
-                }
-                else if(h->kernelType == KANTIELIP)
-                {
-                    CAntiEllipsoid a;
-                    a.initializeKernel(&r);
-                    dh = new DensityHeuristic(DENSITY,a.m_kernelMask, a.width(), a.height(), h->radius, h->threshold, h->colorDifference);
-                }
-                else if(h->kernelType == KCIRCULAR)
-                {
-                    CCircular      c;
-                    c.initializeKernel(&r);
-                    dh = new DensityHeuristic(DENSITY,c.m_kernelMask, c.width(), c.height(), h->radius, h->threshold, h->colorDifference);
-                }
-
-                densityHeuristic.push_back(dh);
-
-                string densityfilename = mapPath + "/" + strategyName(h->strategy) +
-                                        "_" + colorDifferenceName(h->colorDifference) +
-                                        "_" + kernelName(h->kernelType) +
-                                        "_R" + std::to_string(int(h->radius)) +
-                                        "_T" + std::to_string(h->threshold) + ".txt";
-
-                cout << "Open density file: " << densityfilename << endl;
-                FILE* f = fopen(densityfilename.c_str(),"r");
-                MapGrid* mg = new MapGrid(f);
-                maps.push_back(mg);
-                break;
-            }
+            locTechnique = TEMPLATE_MATCHING;
+            break;
         }
+        else if(hT->strategy == CREATE_OBSERVATIONS)
+        {
+            generateObservations(rawname+"/");
+            exit(0);
+        }
+        else if(hT->strategy == SSD)
+        {
+            // Create a semi void class for ssd heuristics
+            heur = new ColorHeuristic(SSD, id, hT->colorDifference, hT->threshold);
+        }
+        else if(hT->strategy == COLOR_ONLY)
+        {
+            // Create color heuristic
+            heur = new ColorHeuristic(COLOR_ONLY, id, hT->colorDifference, hT->threshold);
+        }
+        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY || hT->strategy == MUTUAL_INFORMATION )
+        {
+            double r = hT->radius;
+            double* kMask;
+            int kWidth, kHeight;
+
+            // Try to create the kernel
+            if(hT->kernelType == KGAUSSIAN)
+            {
+                CGaussianC g;
+                g.initializeKernel(&r);
+                kMask = g.m_kernelMask;
+                kWidth = g.width();
+                kHeight = g.height();
+            }
+            else if(hT->kernelType == KANTIELIP)
+            {
+                CAntiEllipsoid a;
+                a.initializeKernel(&r);
+                kMask = a.m_kernelMask;
+                kWidth = a.width();
+                kHeight = a.height();
+            }
+            else if(hT->kernelType == KCIRCULAR)
+            {
+                CCircular c;
+                c.initializeKernel(&r);
+                kMask = c.m_kernelMask;
+                kWidth = c.width();
+                kHeight = c.height();
+            }
+
+            // Create kernel heuristic
+            if(hT->strategy == DENSITY)
+                heur = new DensityHeuristic(DENSITY, id, kMask, kWidth, kHeight, hT->radius, hT->threshold, hT->colorDifference);
+            else if(hT->strategy == ENTROPY)
+                heur = new EntropyHeuristic(ENTROPY, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+            else if(hT->strategy == MUTUAL_INFORMATION)
+                heur = new MIHeuristic(MUTUAL_INFORMATION, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+
+            // Open cached map
+            string mapfilename = mapPath + "/";
+            if(hT->strategy == DENSITY)
+                mapfilename += "DENSITY";
+            else
+                mapfilename += "ENTROPY";
+            mapfilename += "_" + colorDifferenceName(hT->colorDifference) +
+                           "_" + kernelName(hT->kernelType) +
+                           "_R" + std::to_string(int(hT->radius)) +
+                           "_T" + std::to_string(hT->threshold) + ".txt";
+
+            cout << "Open file: " << mapfilename << endl;
+            FILE* f = fopen(mapfilename.c_str(),"r");
+            mg = new MapGrid(f);
+        }
+
+        heuristics.push_back(heur);
+        cachedMaps.push_back(mg);
     }
 
     // Read images names
@@ -131,6 +151,15 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
 DroneRobot::~DroneRobot()
 {
+}
+
+int DroneRobot::getNextProperHeuristicID(STRATEGY type)
+{
+    int id=0;
+    for(int s=0; s<heuristics.size(); s++)
+        if(heuristics[s]->getType() == type)
+            id++;
+    return id;
 }
 
 void DroneRobot::generateObservations(string imagePath)
@@ -152,7 +181,7 @@ void DroneRobot::generateObservations(string imagePath)
         circle(window,Point2f(p.x*scale,p.y*scale),10,Scalar(0,0,255));
         imshow( "Trajectory", window );
 
-        Mat z = MCL::getParticleObservation(p,Size2f(320,240),globalMaps[0]);
+        Mat z = Utils::getRotatedROIFromImage(p,Size2f(320,240),globalMaps[0]);
         imshow( "Observation", z );
 
         // Save image
@@ -186,16 +215,15 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 
 //    waitKey(1000);                                    // Wait for a keystroke in the window
 
-    // Initialize MCL
-    if(ssdHeuristics.size()>0)
-        locTechnique = SSD;
-    if(densityHeuristic.size()>0)
-        locTechnique = DENSITY;
-    if(colorHeuristics.size()>0)
-        locTechnique = COLOR_ONLY;
+//    if(ssdHeuristics.size()>0)
+//        locTechnique = SSD;
+//    if(densityHeuristic.size()>0)
+//        locTechnique = DENSITY;
+//    if(colorHeuristics.size()>0)
+//        locTechnique = COLOR_ONLY;
 
-    mcLocalization = new MCL(maps, globalMaps, locTechnique, prevRawOdom,
-                             ssdHeuristics, colorHeuristics, densityHeuristic);
+    // Initialize MCL
+    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, prevRawOdom);
 
     step = 0;
 
@@ -225,7 +253,7 @@ void computeEntropyMap(Mat& image_orig, Mat& mask)
     unsigned int bins = 22;
     CGaussianC     g;
     g.initializeKernel(&r);
-    EntropyHeuristic *eih = new EntropyHeuristic(ENTROPY, g.m_kernelMask, g.width(), g.height(), r, l, cd, bins);
+    EntropyHeuristic *eih = new EntropyHeuristic(ENTROPY, 0, g.m_kernelMask, g.width(), g.height(), r, l, cd, bins);
 
     cout << "Computing entropy " << endl;
 
@@ -266,67 +294,19 @@ void DroneRobot::run()
 
     // Defaut all free binary map
     Mat mask(currentMap.cols, currentMap.rows, CV_8SC3,Scalar(0,0,0));
-    Mat whiteMask(currentMap.rows, currentMap.cols, CV_8UC3, Scalar(255,255,255));
 
-    computeEntropyMap(currentMap, mask);
-
-    return;
+//    computeEntropyMap(currentMap, mask);
+//    return;
 
     if(locTechnique == TEMPLATE_MATCHING){
-        cout << "Templatão" << endl;
-
-        for(int angle=360; angle>=0; angle-=10){
-
-            Mat templ = MCL::rotateImage(currentMap,angle);
-            Mat mask = MCL::rotateImage(whiteMask,angle);
-            imshow( "Local Map", templ );
-            imshow( "Mask", mask );
-
-            /// Source image to display
-            Mat img_display;
-            globalMaps[0].copyTo( img_display );
-
-            /// Create the result matrix
-            int result_cols =  globalMaps[0].cols - templ.cols + 1;
-            int result_rows = globalMaps[0].rows - templ.rows + 1;
-
-            /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
-            int match_method = CV_TM_CCORR_NORMED;
-
-            Mat result;
-            result.create( result_rows, result_cols, CV_32FC1 );
-
-            matchTemplate( globalMaps[0], templ, result, match_method, mask );
-
-            /// Localizing the best match with minMaxLoc
-            double minVal; double maxVal; Point minLoc; Point maxLoc;
-            Point matchLoc;
-
-            minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-            /// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-            if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-              { matchLoc = minLoc; }
-            else
-              { matchLoc = maxLoc; }
-
-            /// Show me what you got
-            rectangle( img_display, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
-            rectangle( result, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
-
-            resize(img_display,img_display,Size(0,0),0.2,0.2);
-            imshow( "image_window", img_display );
-            resize(result,result,Size(0,0),0.2,0.2);
-            imshow( "result", result);
-            waitKey(0);
-        }
-
+        localizeWithTemplateMatching(currentMap);
         return;
     }
 
     // Create different versions of the input image
     createColorVersions(currentMap);
 
+    // Compute or read Odometry
     if(step>1){
         if(offlineOdom)
             odometry_ = readOdometry();
@@ -339,41 +319,45 @@ void DroneRobot::run()
 
     prevMap = currentMap;
 
-//    return;
+    vector<int> densities;
+    vector<double> densityGradients;
 
-    vector<int> densities(densityHeuristic.size());
-    vector<double> gradients(densityHeuristic.size());
-    double val=0;
-    cout << "Heuristics: ";
-    for(int i=0;i<densityHeuristic.size();++i)
+    // Compute heuristics in local map
+    for(int l=0;l<heuristics.size();++l)
     {
         // Choose appropriate color scheme
-        int mapID = selectMapID(densityHeuristic[i]->getColorDifference());
-        // create discrete density value according to the corresonding mapgrid
-        val=densityHeuristic[i]->calculateValue(
-                    currentMap.cols/2, currentMap.rows/2,
-                    &mapsColorConverted[mapID], &mask);
-        densities[i]=maps[i]->convertToMapGridDiscrete(val);
-        // and do the same for the angles
-        gradients[i]=densityHeuristic[i]->calculateGradientSobelOrientation(
-                    currentMap.cols/2, currentMap.rows/2,
-                    &mapsColorConverted[mapID], &mask);
-        cout << densities[i] << " ";
+        int mapID = selectMapID(heuristics[l]->getColorDifference());
+
+        if(heuristics[l]->getType() == DENSITY)
+        {
+            // create discrete density value according to the corresonding mapgrid
+            double val=heuristics[l]->calculateValue(
+                        currentMap.cols/2, currentMap.rows/2,
+                        &mapsColorConverted[mapID], &mask);
+            densities.push_back(cachedMaps[l]->convertToMapGridDiscrete(val));
+            // and do the same for the angles
+            double grad = heuristics[l]->calculateGradientSobelOrientation(
+                                         currentMap.cols/2, currentMap.rows/2,
+                                         &mapsColorConverted[mapID], &mask);
+            densityGradients.push_back(grad);
+        }
+        else if(heuristics[l]->getType() == COLOR_ONLY)
+        {
+            ColorHeuristic* ch = (ColorHeuristic*) heuristics[l];
+            ch->setBaselineColor(currentMap.cols/2, currentMap.rows/2, &mapsColorConverted[mapID]);
+        }
     }
+
+    cout << "Densities: ";
+    for(int i=0; i<densities.size(); ++i)
+        cout << densities[i] << " ";
     cout << endl;
 
     // Obtain
     double time=0;
 
-
-    // Color ONLY
-    for(int i=0; i<colorHeuristics.size();++i)
-    {
-        int mapID = selectMapID(colorHeuristics[i]->getColorDifference());
-        colorHeuristics[i]->setBaselineColor(currentMap.cols/2, currentMap.rows/2, &mapsColorConverted[mapID]);
-    }
-
-    mcLocalization->run(odometry_, currentMap, densities, gradients,time, prevRawOdom);
+    // Run Monte Carlo Localization
+    mcLocalization->run(odometry_, currentMap, densities, densityGradients, time, prevRawOdom);
 
     // Navigation
     switch(motionMode_){
@@ -383,6 +367,36 @@ void DroneRobot::run()
             break;
         default:
             break;
+    }
+}
+
+void DroneRobot::localizeWithTemplateMatching(Mat& currentMap)
+{
+    cout << "Templatão" << endl;
+    Mat whiteMask(currentMap.rows, currentMap.cols, CV_8UC3, Scalar(255,255,255));
+
+    for(int angle=360; angle>=0; angle-=10){
+
+        Mat templ = Utils::rotateImage(currentMap,angle);
+        Mat mask = Utils::rotateImage(whiteMask,angle);
+        imshow( "Local Map", templ );
+        imshow( "Mask", mask );
+
+        /// Source image to display
+        Mat img_display, result;
+        globalMaps[0].copyTo( img_display );
+
+        Point matchLoc = Utils::templateMatching(globalMaps[0],templ,result,CV_TM_CCORR_NORMED,mask);
+
+        /// Show me what you got
+        rectangle( img_display, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
+        rectangle( result, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
+
+        resize(img_display,img_display,Size(0,0),0.2,0.2);
+        imshow( "image_window", img_display );
+        resize(result,result,Size(0,0),0.2,0.2);
+        imshow( "result", result);
+        waitKey(0);
     }
 }
 
@@ -396,7 +410,7 @@ Pose DroneRobot::readOdometry()
     Pose odom;
     odom.x = cos(-prevRawOdom.theta)*deltaX - sin(-prevRawOdom.theta)*deltaY;
     odom.y = sin(-prevRawOdom.theta)*deltaX + cos(-prevRawOdom.theta)*deltaY;
-    odom.theta = getDiffAngle(newRawOdom.theta,prevRawOdom.theta);
+    odom.theta = Utils::getDiffAngle(newRawOdom.theta,prevRawOdom.theta);
 //    cout << "RAW " << newRawOdom.theta << " - " << prevRawOdom.theta << " = " << odom.theta << endl;
 
     prevRawOdom = newRawOdom;

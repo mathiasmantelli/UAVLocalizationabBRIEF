@@ -27,10 +27,12 @@ public:
 
 private:
 
+    int getNextProperHeuristicID(STRATEGY type);
     void generateObservations(string imagePath);
     bool readRawOdometryFromFile(Pose& p);
     Pose readOdometry();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
+    void localizeWithTemplateMatching(Mat &currentMap);
 
     bool offlineOdom;
     Pose prevRawOdom;
@@ -39,15 +41,17 @@ private:
     STRATEGY locTechnique;
 
     // Heuristics vectors
-    vector<ColorHeuristic*> ssdHeuristics;
-    vector<ColorHeuristic*> colorHeuristics;
-    vector<DensityHeuristic*> densityHeuristic;
+    vector<Heuristic*> heuristics;
+    vector<MapGrid*> cachedMaps;
+
+//    vector<ColorHeuristic*> ssdHeuristics;
+//    vector<ColorHeuristic*> colorHeuristics;
+//    vector<DensityHeuristic*> densityHeuristic;
 
     vector<Mat> globalMaps;
     vector<Mat> mapsColorConverted;
     vector<string> imagesNames;
 
-    vector<MapGrid*> maps;
 
     Mat prevMap;
 

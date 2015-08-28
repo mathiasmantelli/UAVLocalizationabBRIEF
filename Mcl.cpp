@@ -22,15 +22,12 @@
 // Métodos Públicos //
 //////////////////////
 
-MCL::MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY technique, Pose &initial, vector<ColorHeuristic*>& ssdHeuristics, vector<ColorHeuristic*>& colorHeuristics, vector<DensityHeuristic*>& densityHeuristics) :
-    locTechnique(technique),
-    densityMaps(completeDensityMaps),
-    globalMaps(gMaps),
-    ssdHeuristics(ssdHeuristics),
-    colorHeuristics(colorHeuristics),
-    densityHeuristics(densityHeuristics)
+MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial):
+    heuristics(hVector),
+    cachedMaps(cMaps),
+    globalMaps(gMaps)
 {
-    numParticles = 10;
+    numParticles = 10000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -59,7 +56,7 @@ MCL::MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY te
             particles[i].p.y = randomY(generator);
             particles[i].p.theta = randomTh(generator);
 
-//            particles[i].p=initial;
+            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -282,13 +279,14 @@ bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients
     gettimeofday(&tstart, NULL);
 
     sampling(u);
-    if(locTechnique == SSD)
-       weightingSSD(z);
-    if(locTechnique == DENSITY)
-       weightingDensity(densities,u,gradients);
-    if(locTechnique == COLOR_ONLY)
-       weightingColor(); // receive color maps
+    weighting(z,densities,u,gradients);
 
+//    if(locTechnique == SSD)
+//       weightingSSD(z);
+//    if(locTechnique == DENSITY)
+//       weightingDensity(densities,u,gradients);
+//    if(locTechnique == COLOR_ONLY)
+//       weightingColor(); // receive color maps
 
     double sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)
@@ -498,132 +496,93 @@ void MCL::sampling(Pose &u)
     }
 }
 
-void MCL::weightingColor()
+void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double> &gradients)
 {
-    double sumWeights = 0.0;
-    double var = pow(3.0, 2.0); // normalized gaussian
+    int count = 0;
 
+    // Used to compute min and max value of density (for some reason)
+    int minVal = INT_MAX;
+    int maxVal = INT_MIN;
 
     for(int i=0;i<particles.size();++i)
     {
-        double x = particles[i].p.x;
-        double y = particles[i].p.y;
-        double prob=1.0;
-
-        for(int s=0;s<colorHeuristics.size();++s)
-        {
-
-            ColorHeuristic* h = colorHeuristics[s];
-            /// compute color difference
-            int mapID = selectMapID(h->getColorDifference());
-            double diff  = h->calculateValue(int(round(x)),int(round(y)),&globalMaps[mapID]);
-
-            /// Gaussian weighing
-            if(diff!=HEURISTIC_UNDEFINED)
-                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(diff,2)/var));
-            else
-                prob *= 1.0/(numParticles);
-        }
-        // sum weights
-        particles[i].w *= prob;
-        sumWeights += particles[i].w;
-    }
-
-    //normalize particles
-    if(sumWeights!=0.0)
-        for(int i=0; i<particles.size(); i++)
-            particles[i].w /= sumWeights;
-    else
-        for(int i=0; i<particles.size(); i++)
-            particles[i].w = 1.0/numParticles;
-}
-
-void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
-{
-    double sumWeights = 0.0;
-    double var = pow(51.5,2.0); //10% of 255
-
-    // Evaluate all particles
-    int count = 0;
-    int minVal = INT_MAX;
-    int maxVal = INT_MIN;
-    for(int i=0; i<particles.size(); i++){
         int x=round(particles[i].p.x);
         int y=round(particles[i].p.y);
-        for(int l=0; l<densityMaps.size(); ++l) {
-            if(densityMaps[l]->getHeuristicValue(x,y)<minVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-                minVal = densityMaps[l]->getHeuristicValue(x,y);
-            if(densityMaps[l]->getHeuristicValue(x,y)>maxVal && densityMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-                maxVal = densityMaps[l]->getHeuristicValue(x,y);
-        }
-    }
-    cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
-//    for(int j=0;j<densities.size();++j)
-//        cout << "HEURISTIC: " << densities[j] << " ";
-//    cout << endl;
 
-//    vector<int> acounter(densities.size(),0);
-    for(int i=0; i<particles.size(); i++){
-        // check if particle is valid (known and not obstacle)
-        if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-           densityMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
+        // check if particle is not valid (unknown or obstacle)
+        if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
             particles[i].w = 0.0;
             count++;
             continue;
         }
 
-        int x=round(particles[i].p.x);
-        int y=round(particles[i].p.y);
+        double varColor = pow(3.0, 2.0); // normalized gaussian
+        double varDensity = pow(51.5,2.0); //10% of 255
+        double prob=1.0;
 
-        // Compute likelihood of each density
-        double prob = 1.0;
-        bool ag = false;
-        for(int l=0; l<densities.size(); l=l+1) {
-///*** Filtering using simple 1o 0.5 probability accoding to a threshold ***/
-/// Filter out some density values
-//           if(abs((densities[l]>100?densities[l]:densities[l]) -
-//                   (densityMaps[l]->getHeuristicValue(x,y)>100 ?
-//                    densityMaps[l]->getHeuristicValue(x,y) : 0)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT)
-//           {
-/// Unfiltered densities
-//            if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 10 || densities[l]==HEURISTIC_UNDEFINED_INT){
-//                prob *= 1.0;
-//                count++;
-//            }else{
-//                acounter[l]++;
-//                prob *= 0.5;
-//            }
+        for(int l=0;l<heuristics.size();++l)
+        {
+            Heuristic* h = heuristics[l];
+            int mapID = selectMapID(h->getColorDifference());
 
-/// Gaussian weighing
-            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
-                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow((densityMaps[l]->getHeuristicValue(x,y)-densities[l]),2)/var));
+            switch(h->getType())
+            {
+                case SSD:
+                {
+                    Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[0]);
+                    prob = Utils::matchImages(z_robot,z_particle,CV_TM_CCORR_NORMED);
+                    break;
+                }
+                case COLOR_ONLY:
+                {
+                    /// compute color difference
+                    double diff  = h->calculateValue(x,y,&globalMaps[mapID]);
 
-/// Hyperbolic secant^5 weighing
-//            if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
-//                double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
-//                prob *= (1/cosh(val*val*val*val*val));
-//            }
+                    /// Gaussian weighing
+                    if(diff!=HEURISTIC_UNDEFINED)
+                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                    else
+                        prob *= 1.0/(numParticles);
+                    break;
+                }
+                case DENSITY:
+                {
+                    int d = h->getID();
 
-            if(densities[l] ==HEURISTIC_UNDEFINED_INT && densityMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
-                    prob *= 1.0/numParticles;
+                    if(cachedMaps[l]->getHeuristicValue(x,y)<minVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
+                        minVal = cachedMaps[l]->getHeuristicValue(x,y);
+                    if(cachedMaps[l]->getHeuristicValue(x,y)>maxVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
+                        maxVal = cachedMaps[l]->getHeuristicValue(x,y);
+
+                    /// Gaussian weighing
+                    if(densities[d]!=HEURISTIC_UNDEFINED_INT)
+                        prob *= 1.0/(sqrt(2*M_PI*varDensity))*exp(-0.5*(pow((cachedMaps[l]->getHeuristicValue(x,y)-densities[d]),2)/varDensity));
+
+                    /// Hyperbolic secant^5 weighing
+                    //if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
+                    //    double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
+                    //    prob *= (1/cosh(val*val*val*val*val));
+                    //}
+
+                    if(densities[d] ==HEURISTIC_UNDEFINED_INT && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                            prob *= 1.0/numParticles;
+                    break;
+                }
+            }
         }
-        particles[i].w = prob;///(double)densities.size();
-        sumWeights += particles[i].w;
+
+        particles[i].w = prob;
     }
-//    cout << "Agressividade: ";
-//    for (int i=0;i<acounter.size();++i)
-//        cout << acounter[i] << " ";
-//    cout << endl;
 
-    //cout <<  "Entradas: " << count << endl;
-    //cout << "SumWeights A " << sumWeights << endl;
+    cout << "Matei: " << count << " partículas." << endl;
+    cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
 
-    discardInvalidDeltaAngles(u,gradients);
+    /// FALTA ARRUMAR ESSA FUNCAO
+    //discardInvalidDeltaAngles(u,gradients);
 
-    sumWeights = 0.0;
+    double sumWeights = 0.0;
     for(int i=0; i<particles.size(); i++)
         sumWeights += particles[i].w;
-
     cout << "SumWeights B " << sumWeights << endl;
 
     // Correct zero error
@@ -631,8 +590,8 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
     {
         for(int i=0; i<particles.size(); i++) {
             // check if particle is valid (known and not obstacle)
-            if(!densityMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-               densityMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
+            if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+               cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
                 particles[i].w = 0.0;
             }
             else {
@@ -641,10 +600,8 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
             }
         }
     }
-    cout << "Matei: " << count << " partículas." << endl;
 
     count = 0;
-
     neff = 0;
 
     //normalize particles
@@ -662,39 +619,207 @@ void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &grad
             particles[i].w = 1.0/numParticles;
         neff=numParticles;
     }
-    cout << "Confirmando Matei: " << count << " partículas." << endl;
+    cout << "Confirmando, matei: " << count << " partículas." << endl;
     neff=1.0/neff;
     cout << "NEFF: " << neff << endl;
-
-}
-
-void MCL::weightingSSD(Mat &z_robot)
-{
-    double sumWeights = 0.0;
-
-    // Evaluate all particles
-    int count = 0;
-    int globalMapID = 0;
-
-    for(int i=0; i<particles.size(); i++){
-        Mat z_particle = getParticleObservation(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
-        particles[i].w = evaluateParticleUsingSSD(z_robot, z_particle);
-        sumWeights+= particles[i].w;
-//        Mat window;
-//        resize(z_particle,window,Size(0,0),0.2,0.2);
-//        imshow("particle"+to_string(i), window );
-    }
-
-    //normalize particles
-    if(sumWeights!=0.0)
-        for(int i=0; i<particles.size(); i++)
-            particles[i].w /= sumWeights;
-    else
-        for(int i=0; i<particles.size(); i++)
-            particles[i].w = 1.0/numParticles;
 }
 
 
+//void MCL::weightingColor()
+//{
+//    double sumWeights = 0.0;
+//    double var = pow(3.0, 2.0); // normalized gaussian
+
+
+//    for(int i=0;i<particles.size();++i)
+//    {
+//        double x = particles[i].p.x;
+//        double y = particles[i].p.y;
+//        double prob=1.0;
+
+//        for(int s=0;s<colorHeuristics.size();++s)
+//        {
+
+//            ColorHeuristic* h = colorHeuristics[s];
+//            /// compute color difference
+//            int mapID = selectMapID(h->getColorDifference());
+//            double diff  = h->calculateValue(int(round(x)),int(round(y)),&globalMaps[mapID]);
+
+//            /// Gaussian weighing
+//            if(diff!=HEURISTIC_UNDEFINED)
+//                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(diff,2)/var));
+//            else
+//                prob *= 1.0/(numParticles);
+//        }
+//        // sum weights
+//        particles[i].w *= prob;
+//        sumWeights += particles[i].w;
+//    }
+
+//    //normalize particles
+//    if(sumWeights!=0.0)
+//        for(int i=0; i<particles.size(); i++)
+//            particles[i].w /= sumWeights;
+//    else
+//        for(int i=0; i<particles.size(); i++)
+//            particles[i].w = 1.0/numParticles;
+//}
+
+//void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
+//{
+//    double sumWeights = 0.0;
+//    double var = pow(51.5,2.0); //10% of 255
+
+//    // Compute min and max density value (for some reason)
+//    int minVal = INT_MAX;
+//    int maxVal = INT_MIN;
+//    for(int i=0; i<particles.size(); i++){
+//        int x=round(particles[i].p.x);
+//        int y=round(particles[i].p.y);
+//        for(int l=0; l<cachedMaps.size(); ++l) {
+//            if(cachedMaps[l]->getHeuristicValue(x,y)<minVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
+//                minVal = cachedMaps[l]->getHeuristicValue(x,y);
+//            if(cachedMaps[l]->getHeuristicValue(x,y)>maxVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
+//                maxVal = cachedMaps[l]->getHeuristicValue(x,y);
+//        }
+//    }
+//    cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
+////    for(int j=0;j<densities.size();++j)
+////        cout << "HEURISTIC: " << densities[j] << " ";
+////    cout << endl;
+
+//    int count = 0;
+////    vector<int> acounter(densities.size(),0);
+//    for(int i=0; i<particles.size(); i++){
+//        // check if particle is valid (known and not obstacle)
+//        if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+//           cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
+//            particles[i].w = 0.0;
+//            count++;
+//            continue;
+//        }
+
+//        int x=round(particles[i].p.x);
+//        int y=round(particles[i].p.y);
+
+//        // Compute likelihood of each density
+//        double prob = 1.0;
+//        bool ag = false;
+//        for(int l=0; l<densities.size(); l=l+1) {
+/////*** Filtering using simple 1o 0.5 probability accoding to a threshold ***/
+///// Filter out some density values
+////           if(abs((densities[l]>100?densities[l]:densities[l]) -
+////                   (densityMaps[l]->getHeuristicValue(x,y)>100 ?
+////                    densityMaps[l]->getHeuristicValue(x,y) : 0)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT)
+////           {
+///// Unfiltered densities
+////            if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 10 || densities[l]==HEURISTIC_UNDEFINED_INT){
+////                prob *= 1.0;
+////                count++;
+////            }else{
+////                acounter[l]++;
+////                prob *= 0.5;
+////            }
+
+///// Gaussian weighing
+//            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
+//                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow((cachedMaps[l]->getHeuristicValue(x,y)-densities[l]),2)/var));
+
+///// Hyperbolic secant^5 weighing
+////            if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
+////                double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
+////                prob *= (1/cosh(val*val*val*val*val));
+////            }
+
+//            if(densities[l] ==HEURISTIC_UNDEFINED_INT && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+//                    prob *= 1.0/numParticles;
+//        }
+//        particles[i].w = prob;///(double)densities.size();
+//        sumWeights += particles[i].w;
+//    }
+////    cout << "Agressividade: ";
+////    for (int i=0;i<acounter.size();++i)
+////        cout << acounter[i] << " ";
+////    cout << endl;
+
+//    //cout <<  "Entradas: " << count << endl;
+//    //cout << "SumWeights A " << sumWeights << endl;
+
+//    discardInvalidDeltaAngles(u,gradients);
+
+//    sumWeights = 0.0;
+//    for(int i=0; i<particles.size(); i++)
+//        sumWeights += particles[i].w;
+
+//    cout << "SumWeights B " << sumWeights << endl;
+
+//    // Correct zero error
+//    if(sumWeights==0.0)
+//    {
+//        for(int i=0; i<particles.size(); i++) {
+//            // check if particle is valid (known and not obstacle)
+//            if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+//               cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
+//                particles[i].w = 0.0;
+//            }
+//            else {
+//                particles[i].w = 1.0;
+//                sumWeights+=1.0;
+//            }
+//        }
+//    }
+//    cout << "Matei: " << count << " partículas." << endl;
+
+//    count = 0;
+
+//    neff = 0;
+
+//    //normalize particles
+//    if(sumWeights!=0.0)
+//        for(int i=0; i<particles.size(); i++){
+//            particles[i].w /= sumWeights;
+
+//            if(particles[i].w == 0.0)
+//                count++;
+
+//            neff+=pow(particles[i].w,2.0);
+//        }
+//    else {
+//        for(int i=0; i<particles.size(); i++)
+//            particles[i].w = 1.0/numParticles;
+//        neff=numParticles;
+//    }
+//    cout << "Confirmando Matei: " << count << " partículas." << endl;
+//    neff=1.0/neff;
+//    cout << "NEFF: " << neff << endl;
+
+//}
+
+//void MCL::weightingSSD(Mat &z_robot)
+//{
+//    double sumWeights = 0.0;
+
+//    // Evaluate all particles
+//    int count = 0;
+//    int globalMapID = 0;
+
+//    for(int i=0; i<particles.size(); i++){
+//        Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
+//        particles[i].w = Utils::matchImages(z_robot,z_particle,CV_TM_CCORR_NORMED);
+//        sumWeights+= particles[i].w;
+////        Mat window;
+////        resize(z_particle,window,Size(0,0),0.2,0.2);
+////        imshow("particle"+to_string(i), window );
+//    }
+
+//    //normalize particles
+//    if(sumWeights!=0.0)
+//        for(int i=0; i<particles.size(); i++)
+//            particles[i].w /= sumWeights;
+//    else
+//        for(int i=0; i<particles.size(); i++)
+//            particles[i].w = 1.0/numParticles;
+//}
 
 void MCL::resampling()
 {
@@ -763,7 +888,7 @@ void MCL::discardInvalidDeltaAngles(Pose &u, vector<double> &gradients)
             if(particles[i].w == 0.0)
                 continue;
 
-            double grad = densityMaps[h]->getOrientation(particles[i].p.x,particles[i].p.y);
+            double grad = cachedMaps[h]->getOrientation(particles[i].p.x,particles[i].p.y);
             if(IS_UNDEF(grad)){
                 continue;
             }
@@ -840,202 +965,3 @@ double MCL::sumAngles(double a, double b)
     return c;
 
 }
-
-Mat MCL::rotateImage(Mat& input, double angle)
-{
-    Point2f origCenter(input.cols/2,input.rows/2);
-    RotatedRect rRect = RotatedRect(origCenter, input.size(), angle);
-    Rect bRect = rRect.boundingRect();
-
-    vector<Point2f> boundaries;
-    boundaries.push_back(Point2f(bRect.x,bRect.y));
-    boundaries.push_back(Point2f(bRect.x+bRect.width,bRect.y+bRect.height));
-    boundaries.push_back(Point2f(0,0));
-    boundaries.push_back(Point2f(input.cols,input.rows));
-    bRect = boundingRect(boundaries);
-
-    Mat source(bRect.height, bRect.width, CV_8UC3, Scalar(0));
-    Point2f center(source.cols/2, source.rows/2);
-
-    Mat aux = source.colRange(center.x - origCenter.x, center.x + origCenter.x).rowRange(center.y - origCenter.y, center.y + origCenter.y);
-    input.copyTo(aux);
-
-    // get the rotation matrix
-    Mat M = getRotationMatrix2D(center, angle, 1.0);
-
-    // perform the affine transformation
-    Mat rotated;
-    warpAffine(source, rotated, M, source.size(), INTER_CUBIC);
-
-    return rotated;
-}
-
-Mat MCL::getParticleObservation(Pose p, Size2f s, Mat& largeMap)
-{
-    Mat& globalMap = largeMap;
-
-    RotatedRect rRect = RotatedRect(Point2f(p.x,p.y), s, RAD2DEG(p.theta)+90.0);
-    Rect bRect = rRect.boundingRect();
-
-    vector<Point2f> boundaries;
-    boundaries.push_back(Point2f(bRect.x,bRect.y));
-    boundaries.push_back(Point2f(bRect.x+bRect.width,bRect.y+bRect.height));
-    boundaries.push_back(Point2f(p.x-s.width/2,p.y-s.height/2));
-    boundaries.push_back(Point2f(p.x+s.width/2,p.y+s.height/2));
-    bRect = boundingRect(boundaries);
-
-    Mat source(bRect.height, bRect.width, CV_8UC3, Scalar(0));
-    Point2f center(source.cols/2, source.rows/2);
-
-    int xi=0;
-    int xf=source.cols;
-    int yi=0;
-    int yf=source.rows;
-
-    // Correct brect
-    if(bRect.x < 0){
-        bRect.width += bRect.x;
-        bRect.x = 0;
-        xi = source.cols - bRect.width;
-    }else if(bRect.x+bRect.width > globalMap.cols){
-        bRect.width = globalMap.cols - bRect.x;
-        xf = bRect.width;
-    }
-    if(bRect.y < 0){
-        bRect.height += bRect.y;
-        bRect.y = 0;
-        yi = source.rows - bRect.height;
-    }else if(bRect.y+bRect.height > globalMap.rows){
-        bRect.height = globalMap.rows - bRect.y;
-        yf = bRect.height;
-    }
-
-    Mat image_roi = globalMap(bRect).clone();
-
-    Mat aux = source.colRange(xi,xf).rowRange(yi,yf);
-    image_roi.copyTo(aux);
-
-    // get angle and size from the bounding box
-    float angle = rRect.angle;
-    Size rect_size = rRect.size;
-//    if (rRect.angle < -45.) {
-//        angle += 90.0;
-//        swap(rect_size.width, rect_size.height);
-//    }
-
-    // get the rotation matrix
-    Mat M = getRotationMatrix2D(center, angle, 1.0);
-
-    // perform the affine transformation
-    Mat rotated;
-    warpAffine(source, rotated, M, source.size(), INTER_CUBIC);
-
-    // crop the resulting image
-    Mat cropped;
-    getRectSubPix(rotated, rect_size, center, cropped);
-
-//    if (rRect.angle < -45.) {
-//        transpose(cropped,cropped);
-//        flip(cropped,cropped,0);
-//    }
-
-
-////    imshow("image_roi", image_roi);
-//    imshow("rotated", rotated);
-////    imshow("cropped", cropped);
-
-//    Point2f start(bRect.x,bRect.y);
-//    Point2f vertices[4];
-//    rRect.points(vertices);
-//    for (int i = 0; i < 4; i++)
-//        line(image_roi, vertices[i]-start, vertices[(i+1)%4]-start, Scalar(0,255,0));
-//    line(image_roi, rRect.center-start, (vertices[1]+vertices[2])/2-start, Scalar(0,255,0));
-
-//    Rect a(Point2f(p.x,p.y)-Point2f(s.width/2,s.height/2)-start, s);
-//    rectangle(image_roi, a, Scalar(255,0,0));
-//    imshow("rectangles", image_roi);
-//    waitKey(0);
-
-    return cropped;
-}
-
-//////////////////////
-/// Image Matching ///
-//////////////////////
-
-Mat MCL::img;
-Mat MCL::templ;
-Mat MCL::result;
-int MCL::match_method;
-
-double MCL::evaluateParticleUsingSSD(Mat& z_robot, Mat& z_particle)
-{
-    double w = -1;
-
-    int max_Trackbar = 1;
-
-    img = z_robot;
-    templ = z_particle;
-    match_method = 3;
-
-    /// Create Trackbar
-    char* trackbar_label = "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
-    createTrackbar(trackbar_label, "window", &match_method, max_Trackbar, MatchingMethod );
-
-    MatchingMethod( 0, 0 );
-
-    w = result.at<float>(0,0);
-
-    return w;
-}
-
-/**
- * @function MatchingMethod
- * @brief Trackbar callback
- */
-void MCL::MatchingMethod( int, void* )
-{
-  /// Source image to display
-  Mat img_display;
-  img.copyTo( img_display );
-
-  /// Create the result matrix
-  int result_cols =  img.cols - templ.cols + 1;
-  int result_rows = img.rows - templ.rows + 1;
-
-  result.create( result_rows, result_cols, CV_32FC1 );
-
-//  double a, b;
-//  minMaxLoc(img,&a,&b);
-//  cout << "IMG min " << a << " max " << b << endl;
-//  minMaxLoc(templ,&a,&b);
-//  cout << "TEMPL min " << a << " max " << b << endl;
-
-  /// Do the Matching and Normalize
-  matchTemplate( img, templ, result, match_method );
-  //normalize( result, result, 0, 1, NORM_MINMAX, -1, Mat() );
-
-  /// Localizing the best match with minMaxLoc
-  double minVal; double maxVal; Point minLoc; Point maxLoc;
-  Point matchLoc;
-
-  minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-  /// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-  if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-    { matchLoc = minLoc; }
-  else
-    { matchLoc = maxLoc; }
-
-//  /// Show me what you got
-//  rectangle( img_display, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
-//  rectangle( result, matchLoc, Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), Scalar::all(0), 2, 8, 0 );
-
-//  imshow( "image_window", img );
-//  imshow( "result_window", templ );
-
-//  waitKey(0);
-
-  return;
-}
-

@@ -32,7 +32,7 @@ std::string strategyName(STRATEGY s);
 class DensityHeuristic : public KernelHeuristic
 {
 public:
-    DensityHeuristic(STRATEGY s, double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC);
+    DensityHeuristic(STRATEGY s, int id, double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC);
     double calculateValue(int x, int y, Mat *image, Mat* map);
 
     vec3 calculateMeanColor(Mat &image, Mat &map);

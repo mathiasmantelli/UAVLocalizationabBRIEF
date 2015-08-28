@@ -12,11 +12,11 @@ class MCL;
 
 #include <GL/glut.h>
 #include <opencv2/core/core.hpp>
+using namespace cv;
+
 #include "densityheuristic.h"
 #include "colorheuristic.h"
-
-
-using namespace cv;
+#include "miheuristic.h"
 
 typedef struct{
     Pose p;
@@ -26,20 +26,17 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<MapGrid *> &completeDensityMaps, vector<Mat> &gMaps, STRATEGY technique, Pose &initial, vector<ColorHeuristic*>& ssdHeuristics, vector<ColorHeuristic*>& colorHeuristics, vector<DensityHeuristic*>& densityHeuristics);
+        MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial);
         ~MCL();
-
-        void draw(int x_aux, int y_aux, int halfWindowSize);
-
-        vector<MCLparticle> particles;
 
         bool run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
+        void draw(int x_aux, int y_aux, int halfWindowSize);
+
+        // Required to draw
+        vector<MCLparticle> particles;
         vector<Mat>& globalMaps;
         GLuint imageTex;
-
-        static Mat getParticleObservation(Pose p, Size2f s, Mat &largeMap);
-        static Mat rotateImage(Mat& input, double angle);
 
     private:
         fstream particleLog;
@@ -54,36 +51,26 @@ class MCL
         vector<Pose> realPath;
         vector<Pose> odomPath;
 
-
-        MapGrid* realMap;
-        vector<MapGrid*>& densityMaps;
+        vector<Heuristic*>& heuristics;
+        vector<MapGrid*>& cachedMaps;
 
         vector<ColorHeuristic*> ssdHeuristics;
         vector<ColorHeuristic*> colorHeuristics;
         vector<DensityHeuristic*> densityHeuristics;
 
         void sampling(Pose &u);
+        void weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double> &gradients);
+        void resampling();
 
         void weightingSSD(Mat& z_robot);
         void weightingDensity(vector<int>& densities, Pose &u, vector<double> &gradients);
         void weightingColor();
-
-        void resampling();
 
         void discardInvalidDeltaAngles(Pose &u, vector<double> &gradients);
         double computeNeff();
         double computeError(double trueX, double trueY,double particleX, double particleY);
         double computeAngleError(double trueTh, double particleTh);
         double sumAngles(double a, double b);
-
-        double evaluateParticleUsingSSD(Mat& z_robot, Mat& z_particle);
-
-        // Static stuff used for image matching
-        static Mat img;
-        static Mat templ;
-        static Mat result;
-        static int match_method;
-        static void MatchingMethod( int, void* );
 
 };
 

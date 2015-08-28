@@ -35,14 +35,16 @@ enum STRATEGY{
 class Heuristic
 {
 public:
-    Heuristic(STRATEGY s, double l, unsigned int cd);
+    Heuristic(STRATEGY s, int id, double l, unsigned int cd);
 
-    virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
+    virtual double calculateValue(int x, int y, Mat *image, Mat* map=NULL) = 0;
 
     double calculateGradientOrientation(int x, int y, Mat *image, Mat* map);
     double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map);
 
+    STRATEGY getType();
     double getLimiar();
+    int getID();
     int getColorDifference();
     void setLimiar(double val);
     void setColorDifference(double val);
@@ -51,6 +53,7 @@ public:
 
 protected:
     STRATEGY type;
+    int id;
     double limiar;
     unsigned int color_difference;
 };
@@ -58,7 +61,7 @@ protected:
 class KernelHeuristic : public Heuristic
 {
 public:
-    KernelHeuristic(STRATEGY s, double l, unsigned int cd, int rad, double* k, int kW, int kH);
+    KernelHeuristic(STRATEGY s, int id, double l, unsigned int cd, int rad, double* k, int kW, int kH);
 
     virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
 

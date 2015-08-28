@@ -8,7 +8,7 @@
 class ColorHeuristic : public Heuristic
 {
 public:
-    ColorHeuristic(STRATEGY s, int cd, double limiar);
+    ColorHeuristic(STRATEGY s, int id, int cd, double limiar);
     double calculateValue(int x, int y, Mat *image, Mat *map=NULL);
 
     // set methods

@@ -54,6 +54,9 @@ std::string strategyName(STRATEGY s)
     case DENSITY:
         return "DENSITY";
         break;
+    case ENTROPY:
+        return "ENTROPY";
+        break;
     case DENSITY_LOCALCOLORDIFF:
         return "DENSITY_LOCALCOLORDIFF";
         break;
@@ -61,8 +64,8 @@ std::string strategyName(STRATEGY s)
     return "ERROR";
 }
 
-DensityHeuristic::DensityHeuristic(STRATEGY s, double *k, int kW, int kH, int rad, double l, unsigned int cd):
-KernelHeuristic(s,l,cd,rad,k,kW,kH)
+DensityHeuristic::DensityHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd):
+KernelHeuristic(s,id,l,cd,rad,k,kW,kH)
 {
     color_mean.set(0.0,0.0,0.0);
     color_stdev.set(0.0,0.0,0.0);

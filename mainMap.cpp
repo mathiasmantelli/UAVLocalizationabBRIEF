@@ -384,7 +384,7 @@ int main( int argc, char** argv )
                 "_" + colorDifferenceName(color_difference) +
                 "_" + kernelT +
                 "_R" + std::to_string(int(radius)) +
-                "_B" + std::to_string(numBins) + ".txt";
+                "_T" + std::to_string(numBins) + ".txt";
     }
 
     cout << "1. computing values: this will take a very long time for large kernels..." << endl;

@@ -5,13 +5,14 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-
 using namespace std;
+
+#include<opencv2/core/core.hpp>
+#include<opencv2/opencv.hpp>
+using namespace cv;
 
 #define DEG2RAD(a) ((a) * M_PI / 180.0)
 #define RAD2DEG(a) ((a) * 180.0 / M_PI)
-
-double getDiffAngle(double ang1, double ang2);
 
 class Pose{
     public:
@@ -58,6 +59,16 @@ class Timer{
 
     private:
         struct timeval tstart, tlapstart, tnow;
+};
+
+class Utils{
+public:
+    static double getDiffAngle(double ang1, double ang2);
+    static Mat getRotatedROIFromImage(Pose p, Size2f s, Mat &largeMap);
+    static Mat rotateImage(Mat& input, double angle);
+    static double matchImages(Mat& im_1, Mat& im_2, int match_method, InputArray &im2_mask=noArray());
+    static Point templateMatching(Mat& image, Mat& templ, Mat& result, int match_method, InputArray &templ_mask=noArray());
+
 };
 
 #endif // UTILS_H

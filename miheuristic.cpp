@@ -6,14 +6,14 @@
 #include <map>
 using namespace std;
 
-MIHeuristic::MIHeuristic(STRATEGY s, double *k, int kW, int kH, int rad, double l, unsigned int cd, unsigned int nbins):
-EntropyHeuristic(s, k,kW,kH,rad,l,cd,nbins)
+MIHeuristic::MIHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd, unsigned int nbins):
+EntropyHeuristic(s,id,k,kW,kH,rad,l,cd,nbins)
 {
 
 }
 
-EntropyHeuristic::EntropyHeuristic(STRATEGY s, double *k,int kW, int kH,int rad, double l, unsigned int cd, unsigned int nbins):
-KernelHeuristic(s,l,cd,rad,k,kW,kH), numBinsPerChannel(nbins)
+EntropyHeuristic::EntropyHeuristic(STRATEGY s, int id, double *k,int kW, int kH,int rad, double l, unsigned int cd, unsigned int nbins):
+KernelHeuristic(s,id,l,cd,rad,k,kW,kH), numBinsPerChannel(nbins)
 {
     maxEntropyValue = log2(numBinsPerChannel);
     if(color_difference != INTENSITYC)

@@ -1,12 +1,23 @@
 #include "Heuristic.h"
 
-Heuristic::Heuristic(STRATEGY s, double l, unsigned int cd):
-    type(s), limiar(l), color_difference(cd)
+Heuristic::Heuristic(STRATEGY s, int id, double l, unsigned int cd):
+    type(s), limiar(l), color_difference(cd), id(id)
 {
 
 }
 
 // get Methods
+
+STRATEGY Heuristic::getType()
+{
+    return type;
+}
+
+int Heuristic::getID()
+{
+    return id;
+}
+
 double Heuristic::getLimiar()
 {
     return limiar;
@@ -91,8 +102,8 @@ double Heuristic::calculateGradientSobelOrientation(int xCenter, int yCenter, Ma
     return atan2(dy, dx); //radians
 }
 
-KernelHeuristic::KernelHeuristic(STRATEGY s, double l, unsigned int cd, int rad, double* k, int kW, int kH):
-Heuristic(s, l, cd), radius(rad), kWidth(kW), kHeight(kH)
+KernelHeuristic::KernelHeuristic(STRATEGY s, int id, double l, unsigned int cd, int rad, double* k, int kW, int kH):
+Heuristic(s, id, l, cd), radius(rad), kWidth(kW), kHeight(kH)
 {
     this->kernel = new double[kWidth*kHeight];
     memcpy(this->kernel, k, sizeof(double)*kWidth*kHeight);

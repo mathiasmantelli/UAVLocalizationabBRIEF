@@ -1,7 +1,7 @@
 #include "colorheuristic.h"
 
-ColorHeuristic::ColorHeuristic(STRATEGY s, int cd, double l):
-Heuristic(s,l,cd)
+ColorHeuristic::ColorHeuristic(STRATEGY s, int id, int cd, double l):
+Heuristic(s,id,l,cd)
 {
 
 }
