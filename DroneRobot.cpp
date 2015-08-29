@@ -125,8 +125,14 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                 mapfilename += "ENTROPY";
             mapfilename += "_" + colorDifferenceName(hT->colorDifference) +
                            "_" + kernelName(hT->kernelType) +
-                           "_R" + std::to_string(int(hT->radius)) +
-                           "_T" + std::to_string(hT->threshold) + ".txt";
+                           "_R" + std::to_string(int(hT->radius));
+            if(hT->strategy == DENSITY)
+                mapfilename += "_T" + std::to_string(hT->threshold) + ".txt";
+            else
+            {
+                // Entropy Heuistic receives bins from threshold
+                mapfilename += "_T" + std::to_string(int(hT->threshold)) + ".txt";
+            }
 
             cout << "Open file: " << mapfilename << endl;
             FILE* f = fopen(mapfilename.c_str(),"r");

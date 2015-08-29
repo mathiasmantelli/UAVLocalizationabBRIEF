@@ -307,7 +307,7 @@ int main( int argc, char** argv )
         if(strategy==DENSITY)
             h = new DensityHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
-            h = new EntropyHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
+            h = new EntropyHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
     }
     else if(kernelType.compare("Inverted")==0 || kernelType.compare("inverted")==0)
     {
@@ -316,7 +316,7 @@ int main( int argc, char** argv )
         if(strategy==DENSITY)
             h = new DensityHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
-            h = new EntropyHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
+            h = new EntropyHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
 
     }
     else if(kernelType.compare("Circular")==0 || kernelType.compare("circular")==0)
@@ -326,7 +326,7 @@ int main( int argc, char** argv )
         if(strategy==DENSITY)
             h = new DensityHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
-            h = new EntropyHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, 2.3, color_difference, color_limiar); // color_limiar=numBins
+            h = new EntropyHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
     }
 
     // Convert image to the appropriate format
