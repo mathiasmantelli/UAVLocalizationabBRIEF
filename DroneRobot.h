@@ -22,8 +22,6 @@ public:
 
     void initialize(ConnectionMode cmode, LogMode lmode, string fname);
     void run();
-    void createColorVersions(Mat& imageRGB);
-
 
 private:
 
@@ -49,7 +47,6 @@ private:
 //    vector<DensityHeuristic*> densityHeuristic;
 
     vector<Mat> globalMaps;
-    vector<Mat> mapsColorConverted;
     vector<string> imagesNames;
 
 

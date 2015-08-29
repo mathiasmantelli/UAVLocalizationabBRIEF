@@ -24,10 +24,14 @@
 
 MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial):
     heuristics(hVector),
+    heuristicValues(heuristics.size(),0.0),
+    heuristicGradients(heuristics.size(),0.0),
+    frameColorConverted(3),
+    binaryFrameMask(),
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 10000;
+    numParticles = 500;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -261,11 +265,14 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glutPostRedisplay();
 }
 
-bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose& real)
+bool MCL::run(Pose &u, Mat &z, double time, Pose& real)
 {
 //    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    if(delta<1.0)
 //        return false;
+
+    // Create different versions of the input image
+    createColorVersions(z);
 
     realPose = real;
     realPath.push_back(realPose);
@@ -279,7 +286,8 @@ bool MCL::run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients
     gettimeofday(&tstart, NULL);
 
     sampling(u);
-    weighting(z,densities,u,gradients);
+    prepareWeighting();
+    weighting(z,u);
 
 //    if(locTechnique == SSD)
 //       weightingSSD(z);
@@ -496,13 +504,9 @@ void MCL::sampling(Pose &u)
     }
 }
 
-void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double> &gradients)
+void MCL::weighting(Mat& z_robot, Pose &u)
 {
     int count = 0;
-
-    // Used to compute min and max value of density (for some reason)
-    int minVal = INT_MAX;
-    int maxVal = INT_MIN;
 
     for(int i=0;i<particles.size();++i)
     {
@@ -517,7 +521,8 @@ void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double
         }
 
         double varColor = pow(3.0, 2.0); // normalized gaussian
-        double varDensity = pow(51.5,2.0); //10% of 255
+        double varDensity = pow(0.1,2.0); //10%
+        double varEntropy = pow(0.1,2.0); //10%
         double prob=1.0;
 
         for(int l=0;l<heuristics.size();++l)
@@ -547,16 +552,9 @@ void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double
                 }
                 case DENSITY:
                 {
-                    int d = h->getID();
-
-                    if(cachedMaps[l]->getHeuristicValue(x,y)<minVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-                        minVal = cachedMaps[l]->getHeuristicValue(x,y);
-                    if(cachedMaps[l]->getHeuristicValue(x,y)>maxVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-                        maxVal = cachedMaps[l]->getHeuristicValue(x,y);
-
                     /// Gaussian weighing
-                    if(densities[d]!=HEURISTIC_UNDEFINED_INT)
-                        prob *= 1.0/(sqrt(2*M_PI*varDensity))*exp(-0.5*(pow((cachedMaps[l]->getHeuristicValue(x,y)-densities[d]),2)/varDensity));
+                    if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                        prob *= 1.0/(sqrt(2*M_PI*varDensity))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varDensity));
 
                     /// Hyperbolic secant^5 weighing
                     //if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
@@ -564,8 +562,24 @@ void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double
                     //    prob *= (1/cosh(val*val*val*val*val));
                     //}
 
-                    if(densities[d] ==HEURISTIC_UNDEFINED_INT && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
-                            prob *= 1.0/numParticles;
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                        prob *= 1.0/numParticles;
+                    break;
+                }
+                case ENTROPY:
+                {
+                    /// Gaussian weighing
+                    if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                        prob *= 1.0/(sqrt(2*M_PI*varEntropy))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varEntropy));
+
+                    /// Hyperbolic secant^5 weighing
+                    //if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
+                    //    double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
+                    //    prob *= (1/cosh(val*val*val*val*val));
+                    //}
+
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                        prob *= 1.0/numParticles;
                     break;
                 }
             }
@@ -575,7 +589,6 @@ void MCL::weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double
     }
 
     cout << "Matei: " << count << " partículas." << endl;
-    cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
 
     /// FALTA ARRUMAR ESSA FUNCAO
     //discardInvalidDeltaAngles(u,gradients);
@@ -964,4 +977,74 @@ double MCL::sumAngles(double a, double b)
     // error in radians
     return c;
 
+}
+
+void MCL::prepareWeighting()
+{
+    // precomputing halfRows e halfCows
+    int halfRows = frameColorConverted[0].rows/2;
+    int halfCols = frameColorConverted[0].cols/2;
+
+    // Set mask if not set yet
+    if(!binaryFrameMask.data)
+        binaryFrameMask = Mat(frameColorConverted[0].cols,
+                              frameColorConverted[0].rows,
+                              CV_8SC3,Scalar(0,0,0));
+
+    // Compute value at the center of the frame using
+    // appropriate color space
+    for(int c = 0; c<heuristics.size();++c)
+    {
+        Heuristic* h = heuristics[c];
+
+        // get proper color space
+        int mapID = selectMapID(h->getColorDifference());
+
+        double val = 0.0;
+        double grad = val;
+
+        switch(h->getType())
+        {
+        case SSD:
+            break;
+        case COLOR_ONLY:
+            {
+            ColorHeuristic* ch = (ColorHeuristic*) heuristics[c];
+            ch->setBaselineColor(halfCols,
+                                 halfRows,
+                                 &frameColorConverted[mapID]);
+            break;
+            }
+        case DENSITY:
+        case ENTROPY:
+        case MUTUAL_INFORMATION:
+            {
+            // create discrete density value according to the corresonding mapgrid
+            heuristicValues[c] = heuristics[c]->calculateValue(
+                        halfCols,
+                        halfRows,
+                        &frameColorConverted[mapID], &binaryFrameMask);
+            // and do the same for the angles
+            heuristicGradients[c] = heuristics[c]->calculateGradientSobelOrientation(
+                        halfCols,
+                        halfRows,
+                        &frameColorConverted[mapID], &binaryFrameMask);
+            break;
+            }
+        }
+    }
+}
+void MCL::createColorVersions(Mat& imageRGB)
+{
+    // RGB
+    frameColorConverted[0]=imageRGB.clone();
+
+    // INTENSITYC:
+    cvtColor(imageRGB, frameColorConverted[1],CV_BGR2GRAY);
+    cvtColor(frameColorConverted[1], frameColorConverted[1],CV_GRAY2BGR);
+
+    // CIELAB1976 || CIELAB1994 || CMCLAB1984 || CIELAB2000 || CIELAB1994MIX || CIELAB2000MIX
+    imageRGB.convertTo(frameColorConverted[2], CV_32F);
+    frameColorConverted[2]*=1/255.0;
+    cvtColor(imageRGB, frameColorConverted[2], CV_BGR2Lab);
 }

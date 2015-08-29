@@ -29,7 +29,7 @@ class MCL
         MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial);
         ~MCL();
 
-        bool run(Pose &u, Mat &z, vector<int> &densities, vector<double> &gradients, double time, Pose &real);
+        bool run(Pose &u, Mat &z, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         void draw(int x_aux, int y_aux, int halfWindowSize);
 
@@ -53,13 +53,18 @@ class MCL
 
         vector<Heuristic*>& heuristics;
         vector<MapGrid*>& cachedMaps;
+        vector<double> heuristicValues;
+        vector<double> heuristicGradients;
+        vector<Mat> frameColorConverted;
+        Mat binaryFrameMask;
 
         vector<ColorHeuristic*> ssdHeuristics;
         vector<ColorHeuristic*> colorHeuristics;
         vector<DensityHeuristic*> densityHeuristics;
 
         void sampling(Pose &u);
-        void weighting(Mat& z_robot, vector<int>& densities, Pose &u, vector<double> &gradients);
+        void weighting(Mat& z_robot, Pose &u);
+        void prepareWeighting();
         void resampling();
 
         void weightingSSD(Mat& z_robot);
@@ -71,6 +76,8 @@ class MCL
         double computeError(double trueX, double trueY,double particleX, double particleY);
         double computeAngleError(double trueTh, double particleTh);
         double sumAngles(double a, double b);
+
+        void createColorVersions(Mat& imageRGB);
 
 };
 
