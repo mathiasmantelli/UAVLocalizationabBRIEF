@@ -38,6 +38,19 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cvtColor(labMap, labMap, CV_BGR2Lab);
     globalMaps.push_back(labMap);
 
+
+    // extract binary map
+     Mat map= imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
+
+    // check if image is valid
+    if(!map.data)
+    {
+        cerr<<"DroneRobot: Map Global Map Binary Image is empty"<< endl;
+        exit(-1);
+    }
+    globalMaps.push_back(map);
+
+
     // Open odometry file, if available
     string rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
     odomFile.open(rawname+"_odom.txt",std::fstream::in);

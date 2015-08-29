@@ -2,6 +2,8 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/video.hpp>
+#include <tuple>
+
 
 #include <map>
 using namespace std;
@@ -9,6 +11,10 @@ using namespace std;
 MIHeuristic::MIHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd, unsigned int nbins):
 EntropyHeuristic(s,id,k,kW,kH,rad,l,cd,nbins)
 {
+    if(color_difference != INTENSITYC)
+        maxJointEntropy = 2*log2(numBinsPerChannel);
+    else
+        maxEntropyValue = 6*log2(numBinsPerChannel);
 
 }
 
@@ -112,11 +118,6 @@ double EntropyHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
     return entropy;
 }
 
-double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
-{
-
-}
-
 ID EntropyHeuristic::getIDfromColor(vec3 color)
 {
     ID id;
@@ -145,3 +146,103 @@ ID EntropyHeuristic::getIDfromColor(vec3 color)
     return id;
 }
 
+// Mutual Information Computation
+double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *frame, Mat *frameMap)
+{
+    /// Compute Mutual information
+    double mi=0;
+
+    /// Joint distribution of image at position (x,y) and
+    /// frame at position (cols/2, rows/2)
+    std::map<std::pair<ID,ID>, double> jointPDF;
+    std::map<std::pair<ID,ID>, double>::iterator it;
+
+    int xini = x-radius;
+    int yini = y-radius;
+    int xend = x+radius;
+    int yend = y+radius;
+
+    int xiniF = frame->cols/2-radius;
+    int yiniF = frame->rows/2-radius;
+    int xendF = frame->cols/2+radius;
+    int yendF = frame->rows/2+radius;
+
+
+    if(xini<0 || yini<0 || xend>=image->cols || yend>=image->rows)
+        return HEURISTIC_UNDEFINED;
+
+    int kpos = 0;
+    vec3 free(0.0,0.0,0.0);
+
+    // compute histogram
+    int wF=xiniF;
+    int hF=yiniF;
+    for(int w = xini; w<=xend; ++w)
+    {
+        for(int h = yini; h<=yend; ++h)
+        {
+            // Check if there is an UNDEF value
+            if(kernel[kpos]==0.0)
+            {
+                kpos++;
+                continue;
+            }
+
+            //determine if pixel is in free region
+            vec3 pos(getValuefromPixel(w,h,map));
+
+            // ignore pixel outside map
+            if(pos!=free)
+                return HEURISTIC_UNDEFINED;
+
+            // Construct the n-d ID of the joint distribution
+            vec3 imageColor(getValuefromPixel(w,h,image));
+            ID idImage =  getIDfromColor(imageColor);
+            vec3 frameColor(getValuefromPixel(wF,hF,frame));
+            ID idFrame =  getIDfromColor(frameColor);
+            pair<ID,ID> ndID(std::make_pair(idFrame,idImage));
+
+            // Add to joint distribution
+            it = jointPDF.find(ndID);
+            if (it != jointPDF.end()){
+                jointPDF[ndID] += kernel[kpos];
+            }else{
+                jointPDF[ndID] = kernel[kpos];
+            }
+
+            kpos++;
+            hF++;
+        }
+        wF++;
+    }
+
+    // Compute joint Entropy
+    double jointEntropy = 0.0;
+    for(it = jointPDF.begin(); it!= jointPDF.end(); ++it)
+    {
+        jointEntropy -= it->second * log2(it->second);
+    }
+
+    // Denormalize the entropy values and compute mutual information
+    // Normalization, trial one
+    mi = ((observedEntropy+cashedEntropy)*maxEntropyValue-jointEntropy)/(2*maxEntropyValue);
+
+    //return mutual information;
+    return mi;
+}
+
+// Frame entropy
+void MIHeuristic::setObservedEntropy(int x, int y, Mat* image, Mat*map)
+{
+    observedEntropy=EntropyHeuristic::calculateValue(x, y, image, map);
+}
+double MIHeuristic::getObservedEntropy()
+{
+    return observedEntropy;
+}
+
+// Mapgrid entropy
+double MIHeuristic::setCashedEntropy(double value)
+{
+    cashedEntropy=value;
+}

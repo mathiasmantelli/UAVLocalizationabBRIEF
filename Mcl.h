@@ -56,7 +56,7 @@ class MCL
         vector<double> heuristicValues;
         vector<double> heuristicGradients;
         vector<Mat> frameColorConverted;
-        Mat binaryFrameMask;
+        Mat binaryFrameMask;        
 
         vector<ColorHeuristic*> ssdHeuristics;
         vector<ColorHeuristic*> colorHeuristics;

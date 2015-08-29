@@ -523,6 +523,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         double varColor = pow(3.0, 2.0); // normalized gaussian
         double varDensity = pow(0.1,2.0); //10%
         double varEntropy = pow(0.1,2.0); //10%
+        double varMI = pow(0.1,2.0); //10%
         double prob=1.0;
 
         for(int l=0;l<heuristics.size();++l)
@@ -556,13 +557,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                     if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varDensity))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varDensity));
 
-                    /// Hyperbolic secant^5 weighing
-                    //if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
-                    //    double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
-                    //    prob *= (1/cosh(val*val*val*val*val));
-                    //}
-
-                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
                         prob *= 1.0/numParticles;
                     break;
                 }
@@ -572,16 +567,33 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                     if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varEntropy))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varEntropy));
 
-                    /// Hyperbolic secant^5 weighing
-                    //if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
-                    //    double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
-                    //    prob *= (1/cosh(val*val*val*val*val));
-                    //}
-
-                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
                         prob *= 1.0/numParticles;
                     break;
                 }
+            case MUTUAL_INFORMATION:
+            {
+                MIHeuristic* mih = (MIHeuristic*) heuristics[l];
+                if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                {
+                    // Get cashed entropy
+                    mih->setCashedEntropy(cachedMaps[l]->getPureHeuristicValue(x,y));
+                    double val=mih->calculateValue(x, y,
+                                &globalMaps[mapID],
+                                &globalMaps[3], // Mask
+                                &frameColorConverted[mapID],
+                                &binaryFrameMask);
+
+                    // tentativa de peso com MI:
+                    // racional=inverso da entropia mais próximo da média
+                    // Sem considerar rotação
+                    prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(1/val,2)/varMI));
+
+                }
+                if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
+                    prob *= 1.0/numParticles;
+                break;
+            }
             }
         }
 
@@ -1017,7 +1029,6 @@ void MCL::prepareWeighting()
             }
         case DENSITY:
         case ENTROPY:
-        case MUTUAL_INFORMATION:
             {
             // create discrete density value according to the corresonding mapgrid
             heuristicValues[c] = heuristics[c]->calculateValue(
@@ -1031,6 +1042,23 @@ void MCL::prepareWeighting()
                         &frameColorConverted[mapID], &binaryFrameMask);
             break;
             }
+        case MUTUAL_INFORMATION:
+            {
+            MIHeuristic* mih = (MIHeuristic*) heuristics[c];
+            // create discrete density value according to the corresonding mapgrid
+            mih->setObservedEntropy(
+                        halfCols,
+                        halfRows,
+                        &frameColorConverted[mapID], &binaryFrameMask);
+            heuristicValues[c] = mih->getObservedEntropy();
+            // and do the same for the angles
+            heuristicGradients[c] = heuristics[c]->calculateGradientSobelOrientation(
+                        halfCols,
+                        halfRows,
+                        &frameColorConverted[mapID], &binaryFrameMask);
+            break;
+            }
+
         }
     }
 }

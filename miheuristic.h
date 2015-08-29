@@ -14,8 +14,6 @@ public:
 
     ID getIDfromColor(vec3 color);
 
-    double calculateEntropy(int x, int y, Mat *image, Mat* map);
-
 protected:
     unsigned int numBinsPerChannel;
     double maxEntropyValue;
@@ -25,11 +23,21 @@ protected:
 class MIHeuristic : public EntropyHeuristic
 {
 public:
+    // Constructor
     MIHeuristic(STRATEGY s, int id, double *kernel, int kW, int kH, int rad, double l=5.0, unsigned int cd=INTENSITYC, unsigned int nbins=8);
-    double calculateValue(int x, int y, Mat *image, Mat* map);
+    double calculateValue(int x, int y, Mat *image, Mat* map, Mat* frame, Mat* frameMap);
+    //double calculateValue(int x, int y, Mat *image, Mat* map);
+
+    // sets and gets
+    void   setObservedEntropy(int x, int y, Mat* image, Mat*map);
+    double setCashedEntropy(double value);
+    double getObservedEntropy();
+
 
 private:
-
+    double maxJointEntropy;
+    double observedEntropy;
+    double cashedEntropy;
 };
 
 #endif // MIHEURISTIC_H
