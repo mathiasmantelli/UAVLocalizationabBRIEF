@@ -7,6 +7,10 @@
 #include <iostream>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/video.hpp>
+#include "opencv2/features2d/features2d.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/xfeatures2d.hpp"
+#include "opencv2/xfeatures2d/nonfree.hpp"
 
 DroneRobot::DroneRobot()
 {
@@ -323,7 +327,8 @@ void DroneRobot::run()
         if(offlineOdom)
             odometry_ = readOdometry();
         else
-            odometry_ = findOdometry(prevMap,currentMap);
+//            odometry_ = findOdometry(prevMap,currentMap);
+            odometry_ = findOdometryUsingFeatures(prevMap,currentMap);
     }else{
         odometry_ = Pose(0,0,0);
     }
@@ -414,76 +419,8 @@ bool DroneRobot::readRawOdometryFromFile(Pose& p)
    return true;
 }
 
-Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
+void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode)
 {
-    Mat im1_gray, im2_gray;
-
-//    // Reduce size of images
-//    resize(prevImage,im1_gray,Size(0,0),0.2,0.2);
-//    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
-
-    // Convert images to gray scale;
-    cvtColor(prevImage, im1_gray, CV_BGR2GRAY);
-    cvtColor(curImage, im2_gray, CV_BGR2GRAY);
-
-//    Canny(im1_gray,im1_gray,10,30,5);
-//    Canny(im2_gray,im2_gray,10,30,5);
-
-//    imshow("Canny 1", im1_gray);
-//    imshow("Canny 2", im2_gray);
-
-    // Define the motion model
-    const int warp_mode = MOTION_EUCLIDEAN;
-
-    // Set a 2x3 or 3x3 warp matrix depending on the motion model.
-    Mat warp_matrix;
-
-    // Initialize the matrix to identity
-    if ( warp_mode == MOTION_HOMOGRAPHY )
-        warp_matrix = Mat::eye(3, 3, CV_32F);
-    else
-        warp_matrix = Mat::eye(2, 3, CV_32F);
-
-    // Specify the number of iterations.
-    int number_of_iterations = 500;
-
-    // Specify the threshold of the increment
-    // in the correlation coefficient between two iterations
-    double termination_eps = 1e-10;
-
-    // Define termination criteria
-    TermCriteria criteria (TermCriteria::COUNT+TermCriteria::EPS, number_of_iterations, termination_eps);
-
-    // Run the ECC algorithm. The results are stored in warp_matrix.
-    findTransformECC(
-                     im1_gray,
-                     im2_gray,
-                     warp_matrix,
-                     warp_mode,
-                     criteria
-                 );
-
-    // Check quality of matching
-    Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
-    Mat mask;
-    warpAffine(whiteMask, mask, warp_matrix, whiteMask.size(), INTER_LINEAR + WARP_INVERSE_MAP);
-
-    Mat templ(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
-    warpAffine(curImage, templ, warp_matrix, curImage.size(), INTER_LINEAR + WARP_INVERSE_MAP);
-//    imshow("Mask", mask);
-//    imshow("Aligned", templ);
-
-    /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
-    int match_method = CV_TM_CCORR_NORMED;
-
-    Mat result;
-    result.create( 1, 1, CV_32FC1 );
-
-    matchTemplate( prevImage, templ, result, match_method, mask );
-    double w = result.at<float>(0,0);
-    cout << "ODOMETRIA " << (w>0.96?"BOA":"RUIM") << " MANO (" << w << ")" << endl;
-
-
     vector<Point2f> yourPoints;
     yourPoints.push_back(Point2f(0,0));
     yourPoints.push_back(Point2f(curImage.cols,0));
@@ -496,9 +433,14 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     vector<Point2f> transformedPoints;
     transformedPoints.resize(yourPoints.size());
 
-    Mat transf = Mat::eye(3, 3, CV_32F);
-    Mat aux = transf.colRange(0,3).rowRange(0,2);
-    warp_matrix.copyTo(aux);
+    Mat transf;
+//    if (warp_mode != MOTION_HOMOGRAPHY){
+        transf = Mat::eye(3, 3, CV_32F);
+        Mat aux = transf.colRange(0,3).rowRange(0,2);
+        warp_matrix.copyTo(aux);
+//    }else{
+//        transf = warp_matrix;
+//    }
 
     perspectiveTransform(yourPoints, transformedPoints, transf.inv());
 
@@ -564,10 +506,80 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    namedWindow( "Image 2 Aligned", WINDOW_KEEPRATIO );
 //    namedWindow( "Image Blank", WINDOW_KEEPRATIO );
     imshow("Image Blank", blank);
-    imshow("Image 1", im1_gray);
-    imshow("Image 2", im2_gray);
 //    imshow("Image 2 Aligned", im2_aligned);
-//    waitKey(10);
+    waitKey(0);
+}
+
+Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
+{
+    Mat im1_gray, im2_gray;
+
+//    // Reduce size of images
+//    resize(prevImage,im1_gray,Size(0,0),0.2,0.2);
+//    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
+
+    // Convert images to gray scale;
+    cvtColor(prevImage, im1_gray, CV_BGR2GRAY);
+    cvtColor(curImage, im2_gray, CV_BGR2GRAY);
+
+//    Canny(im1_gray,im1_gray,10,30,5);
+//    Canny(im2_gray,im2_gray,10,30,5);
+
+//    imshow("Image 1", im1_gray);
+//    imshow("Image 2", im2_gray);
+
+    // Define the motion model
+    const int warp_mode = MOTION_EUCLIDEAN;
+
+    // Set a 2x3 or 3x3 warp matrix depending on the motion model.
+    Mat warp_matrix;
+
+    // Initialize the matrix to identity
+    if ( warp_mode == MOTION_HOMOGRAPHY )
+        warp_matrix = Mat::eye(3, 3, CV_32F);
+    else
+        warp_matrix = Mat::eye(2, 3, CV_32F);
+
+    // Specify the number of iterations.
+    int number_of_iterations = 500;
+
+    // Specify the threshold of the increment
+    // in the correlation coefficient between two iterations
+    double termination_eps = 1e-10;
+
+    // Define termination criteria
+    TermCriteria criteria (TermCriteria::COUNT+TermCriteria::EPS, number_of_iterations, termination_eps);
+
+    // Run the ECC algorithm. The results are stored in warp_matrix.
+    findTransformECC(
+                     im1_gray,
+                     im2_gray,
+                     warp_matrix,
+                     warp_mode,
+                     criteria
+                 );
+
+    // Check quality of matching
+    Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
+    Mat mask;
+    warpAffine(whiteMask, mask, warp_matrix, whiteMask.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+
+    Mat templ(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
+    warpAffine(curImage, templ, warp_matrix, curImage.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+//    imshow("Mask", mask);
+//    imshow("Aligned", templ);
+
+    /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
+    int match_method = CV_TM_CCORR_NORMED;
+
+    Mat result;
+    result.create( 1, 1, CV_32FC1 );
+
+    matchTemplate( prevImage, templ, result, match_method, mask );
+    double w = result.at<float>(0,0);
+    cout << "ODOMETRIA " << (w>0.96?"BOA":"RUIM") << " MANO (" << w << ")" << endl;
+
+    drawMatchedImages(prevImage,curImage,warp_matrix);
 
     char k = waitKey(20);
     if (k=='g' || k=='G')
@@ -575,11 +587,125 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     else if (k=='b' || k=='B')
         cout << " BAD odometry! :(" << endl;
 
-
     Pose p;
     p.x = warp_matrix.at<float>(0,2);
     p.y = warp_matrix.at<float>(1,2);
     p.theta = acos(warp_matrix.at<float>(0,0));
+
+    return p;
+}
+
+
+Pose DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curImage)
+{
+    Mat img_1, img_2;
+
+    // Convert images to gray scale;
+    cvtColor(prevImage, img_1, CV_BGR2GRAY);
+    cvtColor(curImage, img_2, CV_BGR2GRAY);
+
+    //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
+
+    int minHessian = 400;
+    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(minHessian);
+    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(minHessian);
+
+
+    std::vector<KeyPoint> keypoints_1, keypoints_2;
+    Mat descriptors_1, descriptors_2;
+
+//    detector->detectAndCompute(img_1,noArray(),keypoints_1,descriptors_1);
+//    detector->detectAndCompute(img_2,noArray(),keypoints_2,descriptors_2);
+
+    detector->detect(img_1,keypoints_1);
+    extractor->compute(img_1,keypoints_1,descriptors_1);
+
+    detector->detect(img_2,keypoints_2);
+    extractor->compute(img_2,keypoints_2,descriptors_2);
+
+    //-- Step 3: Matching descriptor vectors using FLANN matcher
+    FlannBasedMatcher matcher;
+    std::vector< DMatch > matches;
+    matcher.match( descriptors_1, descriptors_2, matches );
+
+    double max_dist = 0; double min_dist = 100;
+
+    //-- Quick calculation of max and min distances between keypoints
+    for( int i = 0; i < descriptors_1.rows; i++ )
+    {
+        double dist = matches[i].distance;
+        if( dist < min_dist )
+            min_dist = dist;
+        if( dist > max_dist )
+            max_dist = dist;
+    }
+
+    printf("-- Max dist : %f \n", max_dist );
+    printf("-- Min dist : %f \n", min_dist );
+
+    //-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
+    //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
+    //-- small)
+    //-- PS.- radiusMatch can also be used here.
+    std::vector< DMatch > good_matches;
+
+    for( int i = 0; i < descriptors_1.rows; i++ )
+    {
+        if( matches[i].distance <= max(2*min_dist, 0.02) ){
+            good_matches.push_back( matches[i]);
+        }
+    }
+
+    //-- Draw only "good" matches
+    Mat img_matches;
+    drawMatches( img_1, keypoints_1, img_2, keypoints_2,
+               good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+               vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+
+    for( int i = 0; i < (int)good_matches.size(); i++ )
+        printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx );
+
+    int minNumPoints = 4;
+
+    // Find transformation
+    std::vector<Point2f> points1, points2;
+    for( int i = 0; i < good_matches.size(); i++ )
+    {
+        //-- Get the keypoints from the good matches
+        points1.push_back( keypoints_1[ good_matches[i].queryIdx ].pt );
+        points2.push_back( keypoints_2[ good_matches[i].trainIdx ].pt );
+    }
+
+    Mat H;
+    if(good_matches.size()>=minNumPoints)
+        H = findHomography( points1, points2, CV_RANSAC );
+
+//    //-- Get the corners from the image_1 ( the object to be "detected" )
+//    std::vector<Point2f> obj_corners(4);
+//    obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( img_1.cols, 0 );
+//    obj_corners[2] = cvPoint( img_1.cols, img_1.rows ); obj_corners[3] = cvPoint( 0, img_1.rows );
+//    std::vector<Point2f> scene_corners(4);
+
+//    perspectiveTransform( obj_corners, scene_corners, H);
+
+//    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+//    line( img_matches, scene_corners[0] + Point2f( img_1.cols, 0), scene_corners[1] + Point2f( img_1.cols, 0), Scalar(0, 255, 0), 4 );
+//    line( img_matches, scene_corners[1] + Point2f( img_1.cols, 0), scene_corners[2] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[2] + Point2f( img_1.cols, 0), scene_corners[3] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[3] + Point2f( img_1.cols, 0), scene_corners[0] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
+
+    //-- Show detected matches
+    imshow( "Good Matches", img_matches );
+//    if(good_matches.size()>=minNumPoints)
+    if(!H.empty())
+        drawMatchedImages(prevImage,curImage,H,MOTION_HOMOGRAPHY);
+    else
+        waitKey(0);
+
+    Pose p;
+//    p.x = warp_matrix.at<float>(0,2);
+//    p.y = warp_matrix.at<float>(1,2);
+//    p.theta = acos(warp_matrix.at<float>(0,0));
 
     return p;
 }

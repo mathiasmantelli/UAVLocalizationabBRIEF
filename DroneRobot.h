@@ -30,6 +30,8 @@ private:
     bool readRawOdometryFromFile(Pose& p);
     Pose readOdometry();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
+    Pose findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
+    void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
     void localizeWithTemplateMatching(Mat &currentMap);
 
     bool offlineOdom;
