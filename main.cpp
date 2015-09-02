@@ -126,6 +126,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=CREATE_OBSERVATIONS;
                 else if(s.compare("TEMPLATE")==0 || s.compare("template")==0)
                     ht->strategy=TEMPLATE_MATCHING;
+                else if(s.compare("FEATURE")==0 || s.compare("feature")==0)
+                    ht->strategy=FEATURE_MATCHING;
                 else if(s.compare("COLOR")==0 || s.compare("color")==0)
                     ht->strategy=COLOR_ONLY;
                 else if(s.compare("ENTROPY")==0 || s.compare("entropy")==0)

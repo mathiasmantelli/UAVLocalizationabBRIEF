@@ -31,7 +31,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 500;
+    numParticles = 1;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -60,7 +60,11 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
             particles[i].p.y = randomY(generator);
             particles[i].p.theta = randomTh(generator);
 
-            particles[i].p=initial;
+//            particles[i].p.x = globalMaps[0].cols/2;
+//            particles[i].p.y = globalMaps[0].rows/2;
+//            particles[i].p.theta = 0.0;
+
+//            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -265,7 +269,7 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glutPostRedisplay();
 }
 
-bool MCL::run(Pose &u, Mat &z, double time, Pose& real)
+bool MCL::run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose& real)
 {
 //    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    if(delta<1.0)
@@ -285,7 +289,7 @@ bool MCL::run(Pose &u, Mat &z, double time, Pose& real)
     // Start counting the elapsed time of this iteration
     gettimeofday(&tstart, NULL);
 
-    sampling(u);
+    sampling(u,is_u_reliable);
     prepareWeighting();
     weighting(z,u);
 
@@ -474,7 +478,7 @@ void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
 // Métodos Privados //
 //////////////////////
 
-void MCL::sampling(Pose &u)
+void MCL::sampling(Pose &u, bool reliable)
 {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
@@ -493,15 +497,32 @@ void MCL::sampling(Pose &u)
 //    cout << "Real Pose " << realPose << endl;
 //    cout << "Odom Pose " << odomPose << endl;
 
-    for(int i=0; i<particles.size(); i++){
-        particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
-        particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
-        particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
-        while(particles[i].p.theta > M_PI)
-            particles[i].p.theta -= 2*M_PI;
-        while(particles[i].p.theta < -M_PI)
-            particles[i].p.theta += 2*M_PI;
+    if(reliable){
+        for(int i=0; i<particles.size(); i++){
+            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
+            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
+            particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
+
+            while(particles[i].p.theta > M_PI)
+                particles[i].p.theta -= 2*M_PI;
+            while(particles[i].p.theta < -M_PI)
+                particles[i].p.theta += 2*M_PI;
+        }
+    }else{
+        cout << "UNRELIABLE!!!" << endl;
+        for(int i=0; i<particles.size(); i++){
+            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
+            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
+            particles[i].p.theta += u.theta + randomValue(generator)*30*M_PI/180.0;
+
+            while(particles[i].p.theta > M_PI)
+                particles[i].p.theta -= 2*M_PI;
+            while(particles[i].p.theta < -M_PI)
+                particles[i].p.theta += 2*M_PI;
+        }
     }
+
+
 }
 
 void MCL::weighting(Mat& z_robot, Pose &u)
@@ -514,15 +535,16 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         int y=round(particles[i].p.y);
 
         // check if particle is not valid (unknown or obstacle)
-        if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
-            particles[i].w = 0.0;
-            count++;
-            continue;
-        }
+        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY)
+            if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
+                particles[i].w = 0.0;
+                count++;
+                continue;
+            }
 
         double varColor = pow(3.0, 2.0); // normalized gaussian
         double varDensity = pow(0.1,2.0); //10%
-        double varEntropy = pow(0.1,2.0); //10%
+        double varEntropy = pow(0.4,2.0); //10%
         double varMI = pow(0.1,2.0); //10%
         double prob=1.0;
 
@@ -541,6 +563,10 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                 }
                 case COLOR_ONLY:
                 {
+                    if(x<0 || x>=globalMaps[mapID].cols || y<0 || y>=globalMaps[mapID].rows){
+                        prob = 0;
+                        break;
+                    }
                     /// compute color difference
                     double diff  = h->calculateValue(x,y,&globalMaps[mapID]);
 

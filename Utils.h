@@ -17,6 +17,7 @@ using namespace cv;
 class Pose{
     public:
         Pose();
+        Pose(double a, double b, double c);
         Pose(double a, double b, bool c);
 
         friend ostream& operator<<(ostream& os, const Pose& p);

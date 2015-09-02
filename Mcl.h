@@ -29,7 +29,7 @@ class MCL
         MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial);
         ~MCL();
 
-        bool run(Pose &u, Mat &z, double time, Pose &real);
+        bool run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         void draw(int x_aux, int y_aux, int halfWindowSize);
 
@@ -62,7 +62,7 @@ class MCL
         vector<ColorHeuristic*> colorHeuristics;
         vector<DensityHeuristic*> densityHeuristics;
 
-        void sampling(Pose &u);
+        void sampling(Pose &u, bool reliable);
         void weighting(Mat& z_robot, Pose &u);
         void prepareWeighting();
         void resampling();

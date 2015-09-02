@@ -205,6 +205,10 @@ Pose::Pose(double a, double b, bool c){
     x=a; y=b; theta=0.0; up=c;
 }
 
+Pose::Pose(double a, double b, double c){
+    x=a; y=b; theta=c; up=false;
+}
+
 ostream& operator<<(ostream& os, const Pose& p)
 {
     os << "(" << p.x << ',' << p.y << ',' << p.theta << ")";

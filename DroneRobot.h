@@ -30,12 +30,14 @@ private:
     bool readRawOdometryFromFile(Pose& p);
     Pose readOdometry();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
-    Pose findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
+    pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
     void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
     void localizeWithTemplateMatching(Mat &currentMap);
+    void localizeWithFeatureMatching(Mat& currentMap);
 
     bool offlineOdom;
     Pose prevRawOdom;
+    Pose prevOdometry;
     fstream odomFile;
 
     STRATEGY locTechnique;
@@ -51,6 +53,12 @@ private:
     vector<Mat> globalMaps;
     vector<string> imagesNames;
 
+    // Used for feature matching
+    Ptr<Feature2D> feature_detector;
+    Ptr<Feature2D> feature_extractor;
+    FlannBasedMatcher feature_matcher;
+    std::vector<KeyPoint> keypoints_globalMap;
+    Mat descriptors_globalMap;
 
     Mat prevMap;
 
