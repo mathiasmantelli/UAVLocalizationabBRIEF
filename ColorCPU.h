@@ -1,6 +1,13 @@
 #ifndef __COLORCPU__
 #define __COLORCPU__
 
+enum COLOR_NAME{
+    WHITE,
+    BLACK,
+    RED,
+    GREEN,
+    BLUE,
+};
 
 #include <vector>
 #include "vec2.h"

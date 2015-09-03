@@ -122,6 +122,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=SSD;
                 else if(s.compare("DENSITY")==0 || s.compare("density")==0)
                     ht->strategy=DENSITY;
+                else if(s.compare("SDENSITY")==0 || s.compare("sdensity")==0)
+                    ht->strategy=SINGLE_COLOR_DENSITY;
                 else if(s.compare("CREATE")==0 || s.compare("create")==0)
                     ht->strategy=CREATE_OBSERVATIONS;
                 else if(s.compare("TEMPLATE")==0 || s.compare("template")==0)
@@ -179,7 +181,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             p+=4;
 
             // Check if we must check for kernel data
-            if(ht->strategy==DENSITY || ht->strategy==ENTROPY || ht->strategy==MUTUAL_INFORMATION)
+            if(ht->strategy==DENSITY || ht->strategy==SINGLE_COLOR_DENSITY || ht->strategy==ENTROPY || ht->strategy==MUTUAL_INFORMATION)
             {
                 if(argc>=p+1) {
 
@@ -208,9 +210,32 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
 
                     // Move to next argument
                     p+=2;
+
+
                 }
                 else // Density with missing arguments
                     return errorMessage(p, "Lacking arguments: density requires a kernel type and radius.");
+            }
+
+            if(ht->strategy==SINGLE_COLOR_DENSITY)
+            {
+                if(argc>=p) {
+                    std::string color(argv[p]);
+                    if(color.compare("WHITE")==0 || color.compare("white")==0)
+                        ht->color=WHITE;
+                    else if(color.compare("BLACK")==0 || color.compare("black")==0)
+                        ht->color=BLACK;
+                    else if(color.compare("RED")==0 || color.compare("red")==0)
+                        ht->color=RED;
+                    else if(color.compare("BLUE")==0 || color.compare("blue")==0)
+                        ht->color=BLUE;
+                    else if(color.compare("GREEN")==0 || color.compare("green")==0)
+                        ht->color=GREEN;
+                    else
+                        return errorMessage(p, "Invalid color name: " + color);
+                }
+                else // Density with missing arguments
+                    return errorMessage(p, "Lacking arguments: single_color_density requires a color value.");
             }
             // Store heuristic
             heuristicTypes.push_back(ht);

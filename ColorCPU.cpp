@@ -1,6 +1,5 @@
 #include "ColorCPU.h"
 
-
 CPUColorConverter::CPUColorConverter(void)
 {
 }

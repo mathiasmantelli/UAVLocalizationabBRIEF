@@ -82,13 +82,6 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         if(hT->strategy == FEATURE_MATCHING)
         {
             locTechnique = FEATURE_MATCHING;
-            feature_detector=xfeatures2d::SIFT::create(10000,4,0.08);
-            feature_extractor=feature_detector;
-//            feature_detector=xfeatures2d::SURF::create(minHessian);
-//            feature_extractor=xfeatures2d::SURF::create(minHessian);
-            feature_detector->detect(grayMap,keypoints_globalMap);
-            feature_extractor->compute(grayMap,keypoints_globalMap,descriptors_globalMap);
-            feature_matcher.add(descriptors_globalMap);
             break;
         }
         else if(hT->strategy == CREATE_OBSERVATIONS)
@@ -181,6 +174,9 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         imagesNames.push_back(tempStr);
     }
     cout << "Num images " << imagesNames.size() << endl;
+
+    if(heuristicTypes[0]->strategy == FEATURE_MATCHING)
+        initializeFeatureMatching();
 }
 
 DroneRobot::~DroneRobot()
@@ -267,6 +263,100 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
     ready_ = true;
 }
 
+void DroneRobot::initializeFeatureMatching()
+{
+    Mat globalMap = globalMaps[1]; // Grayscale
+
+    int H = globalMap.rows;
+    int W = globalMap.cols;
+    cout << "H:" << H << " W:" << W << endl;
+
+    feature_detector=xfeatures2d::SIFT::create(100000,10);
+//    feature_detector=xfeatures2d::SURF::create();
+    feature_extractor=feature_detector;
+    feature_detector->detect(globalMap,keypoints_globalMap);
+    feature_extractor->compute(globalMap,keypoints_globalMap,descriptors_globalMap);
+    feature_matcher.add(descriptors_globalMap);
+
+    int descriptorsType = descriptors_globalMap.type();
+
+    cout << "NumKeyPoints " << keypoints_globalMap.size() <<
+            " Descriptors " << descriptors_globalMap.cols << ' ' << descriptors_globalMap.rows << ' '
+                            << Utils::opencvtype2str(descriptorsType) << endl;
+
+    Mat localMap = imread(imagesNames[0],CV_LOAD_IMAGE_COLOR);
+    if(! localMap.data )                              // Check for invalid input
+    {
+        cout <<  "Could not open or find local map" << std::endl ;
+        return;
+    }
+    int h = localMap.rows;
+    int w = localMap.cols;
+    int size = sqrt(h*h+w*w);
+    int halfSize = size/2;
+
+    cout << "h:" << h << " w:" << w << " size:" << size << endl;
+
+    int numRows = H/halfSize;
+    int numCols = W/halfSize;
+    cout << "numRows:" << numRows << " numCols:" << numCols << endl;
+
+    likelihood = Mat(numRows,numCols,descriptorsType,0.0);
+
+    // Allocate matrices
+    hMatcher.resize(numCols);
+    idKeypoints.resize(numCols);
+    for(int x=0; x<hMatcher.size(); ++x){
+        hMatcher[x].resize(numRows);
+        idKeypoints[x].resize(numRows);
+        for(int y=0; y<hMatcher[x].size(); ++y){
+            hMatcher[x][y] = new FlannBasedMatcher();
+            idKeypoints[x][y] = new vector<unsigned int>();
+        }
+    }
+
+    int sum=0;
+    cout << "keyPoints " << endl;
+    // Fill matrices
+    for(int x=0; x<hMatcher.size(); ++x){
+        for(int y=0; y<hMatcher[x].size(); ++y){
+            FlannBasedMatcher* matcher = hMatcher[x][y];
+            vector<unsigned int>* kPoints = idKeypoints[x][y];
+
+            if(x==0 && y==0)
+                cout << matcher << endl;
+
+            // Find features inside the (x,y) block
+            for(int k=0; k<keypoints_globalMap.size(); ++k){
+                KeyPoint& kp = keypoints_globalMap[k];
+                if(kp.pt.x >= x*halfSize &&
+                   kp.pt.x < x*halfSize + size &&
+                   kp.pt.y >= y*halfSize &&
+                   kp.pt.y < y*halfSize + size)
+                    kPoints->push_back(k);
+            }
+
+//            cout << "(" << x*halfSize << "-" << x*halfSize + halfSize << "; "
+//                        << y*halfSize << "-" << y*halfSize + halfSize << ") ";
+            cout << kPoints->size() << ' ';
+            sum += kPoints->size();
+
+            // Copy descriptors associated to kPoints
+            Mat descriptors(kPoints->size(),128,descriptorsType);
+            for(int k=0; k<kPoints->size(); ++k){
+                descriptors_globalMap.row(kPoints->at(k)).copyTo(descriptors.row(k));
+            }
+
+            matcher->add(descriptors);
+        }
+        cout << endl;
+    }
+
+//    cout << "TOTAL:" << sum << endl;
+//    exit(0);
+
+}
+
 void computeEntropyMap(Mat& image_orig, Mat& mask)
 {
     Mat image;
@@ -336,7 +426,8 @@ void DroneRobot::run()
         localizeWithTemplateMatching(currentMap);
         return;
     }else if(locTechnique == FEATURE_MATCHING){
-        localizeWithFeatureMatching(currentMap);
+        localizeWithHierarchicalFeatureMatching(currentMap);
+//        localizeWithFeatureMatching(currentMap);
         return;
     }
 
@@ -408,6 +499,165 @@ void DroneRobot::localizeWithTemplateMatching(Mat& currentMap)
         imshow( "result", result);
         waitKey(0);
     }
+}
+
+void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
+{
+    Mat current;
+
+    // Convert image to gray scale;
+    cvtColor(currentMap, current, CV_BGR2GRAY);
+
+    //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
+
+    std::vector<KeyPoint> keypoints_currentMap;
+    Mat descriptors_currentMap;
+
+    feature_detector->detect(current,keypoints_currentMap);
+    feature_extractor->compute(current,keypoints_currentMap,descriptors_currentMap);
+
+    Mat H;
+    double sum=0;
+    double maxMatches=-1;
+    pair<int,int> best;
+    std::vector< DMatch > best_matches;
+    Mat curlikelihood = Mat(likelihood.rows,likelihood.cols,likelihood.type(),0);
+
+    for(int x=0; x<hMatcher.size(); ++x){
+        for(int y=0; y<hMatcher[x].size(); ++y){
+            //-- Step 3: Matching descriptor vectors using FLANN matcher
+            FlannBasedMatcher* matcher = hMatcher[x][y];
+            vector<unsigned int>* kPoints = idKeypoints[x][y];
+
+            std::vector< DMatch > matches;
+            matcher->match( descriptors_currentMap, matches );
+
+            double max_dist = 0; double min_dist = 100;
+
+            //-- Quick calculation of max and min distances between keypoints
+            for( int i = 0; i < matches.size(); i++ )
+            {
+                double dist = matches[i].distance;
+                if( dist < min_dist )
+                    min_dist = dist;
+                if( dist > max_dist )
+                    max_dist = dist;
+            }
+//            printf("-- Max dist : %f \n", max_dist );
+//            printf("-- Min dist : %f \n", min_dist );
+
+            //-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
+            //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
+            //-- small)
+            //-- PS.- radiusMatch can also be used here.
+            std::vector< DMatch > good_matches;
+            for( int i = 0; i < matches.size(); i++ )
+            {
+                if( matches[i].distance <= max(2*min_dist, 0.02) ){
+                    good_matches.push_back( matches[i]);
+                }
+            }
+
+            likelihood.at<float>(y,x) = good_matches.size();
+            sum += good_matches.size();
+            if(int(good_matches.size()) > maxMatches){
+                maxMatches = good_matches.size();
+                best = pair<int,int>(x,y);
+                best_matches = good_matches;
+//                if(maxMatches > 10){
+//                    // Find transformation
+//                    std::vector<Point2f> points1, points2;
+//                    for( int i = 0; i < good_matches.size(); i++ )
+//                    {
+//                        //-- Get the keypoints from the good matches
+//                        points1.push_back( keypoints_globalMap[ kPoints->at(good_matches[i].trainIdx) ].pt );
+//                        points2.push_back( keypoints_currentMap[ good_matches[i].queryIdx ].pt );
+//                    }
+
+//                    H = findHomography( points1, points2, CV_RANSAC );
+//                }
+            }
+        }
+    }
+
+    // Normalize likelihood
+//    if(sum>0.0)
+//        likelihood /= sum;
+    likelihood /= maxMatches;
+
+    cout << "Total: " << sum << " Max Num: " << maxMatches << endl;
+
+    vector<unsigned int>* kPoints = idKeypoints[best.first][best.second];
+
+    // Compute boundaries of the best association
+    int minX, minY, maxX, maxY;
+    minX = maxX = keypoints_globalMap[kPoints->at(best_matches[0].trainIdx)].pt.x;
+    minY = maxY = keypoints_globalMap[kPoints->at(best_matches[0].trainIdx)].pt.y;
+    for(int k=0; k<best_matches.size(); ++k)
+    {
+        int x=keypoints_globalMap[kPoints->at(best_matches[k].trainIdx)].pt.x;
+        int y=keypoints_globalMap[kPoints->at(best_matches[k].trainIdx)].pt.y;
+        if(x<minX) minX=x;
+        else if(x>maxX) maxX=x;
+        if(y<minY) minY=y;
+        else if(y>maxY) maxY=y;
+    }
+//    cout << "min " << minX << "," << minY << " max " << maxX << "," << maxY << endl;
+//    cout << "min " << minX << "," << minY << " delta " << maxX-minX << "," << maxY-minY << endl;
+
+    // Draw bounding box of the best association
+    Mat gMap = globalMaps[0].clone();
+    line( gMap, Point2f(minX,minY), Point2f(minX,maxY), Scalar(0, 0, 255), 10 );
+    line( gMap, Point2f(minX,maxY), Point2f(maxX,maxY), Scalar(0, 0, 255), 10 );
+    line( gMap, Point2f(maxX,maxY), Point2f(maxX,minY), Scalar(0, 0, 255), 10 );
+    line( gMap, Point2f(maxX,minY), Point2f(minX,minY), Scalar(0, 0, 255), 10 );
+
+    // Draw tranformed image
+    if(!H.empty()){
+        //-- Get the corners from currentMap
+        std::vector<Point2f> obj_corners(7);
+        obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( currentMap.cols, 0 );
+        obj_corners[2] = cvPoint( currentMap.cols, currentMap.rows ); obj_corners[3] = cvPoint( 0, currentMap.rows );
+
+        obj_corners[4] = cvPoint( currentMap.cols/2, currentMap.rows/2 ); // center
+        obj_corners[5] = cvPoint( currentMap.cols, currentMap.rows/2 ); obj_corners[6] = cvPoint( currentMap.cols/2, 0 );
+
+        std::vector<Point2f> scene_corners(7);
+
+        //-- Transform the corners using the homography
+        perspectiveTransform( obj_corners, scene_corners, H);
+
+        Mat img_matches = globalMaps[0].clone();
+        //-- Draw lines between the corners
+        line( gMap, scene_corners[0] + Point2f( currentMap.cols, 0), scene_corners[1] + Point2f( currentMap.cols, 0), Scalar(0, 255, 0), 4 );
+        line( gMap, scene_corners[1] + Point2f( currentMap.cols, 0), scene_corners[2] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( gMap, scene_corners[2] + Point2f( currentMap.cols, 0), scene_corners[3] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( gMap, scene_corners[3] + Point2f( currentMap.cols, 0), scene_corners[0] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
+
+        line( gMap, scene_corners[4] + Point2f( currentMap.cols, 0), scene_corners[5] + Point2f( currentMap.cols, 0), Scalar( 0, 0, 255), 4 );
+        line( gMap, scene_corners[4] + Point2f( currentMap.cols, 0), scene_corners[6] + Point2f( currentMap.cols, 0), Scalar( 255, 0, 0), 4 );
+//        resize(gMap,img_matches,Size(0,0),0.2,0.2);
+//        imshow("Matches", gMap);
+    }
+
+    //-- Draw only "good" matches
+    vector<KeyPoint> keypoints_1;
+    for(int k=0; k<kPoints->size(); ++k)
+        keypoints_1.push_back(keypoints_globalMap[kPoints->at(k)]);
+    Mat img_matches;
+    drawMatches( currentMap, keypoints_currentMap, gMap, keypoints_1,
+               best_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+               vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    resize(img_matches,img_matches,Size(0,0),0.2,0.2);
+    imshow("Matches", img_matches);
+
+//    likelihood *= 0;
+//    likelihood.at<float>(3,2) = 1.0;
+
+    Mat window;
+    resize(likelihood,window,Size(0,0),50,50,INTER_NEAREST);
+    imshow("likelihood",window);
+    waitKey(10);
 }
 
 void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
@@ -732,8 +982,8 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(1000,4);
-    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(1000,4);
+    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(10000,8);
+    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(10000,8);
 
     std::vector<KeyPoint> keypoints_1, keypoints_2;
     Mat descriptors_1, descriptors_2;

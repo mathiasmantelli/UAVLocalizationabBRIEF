@@ -64,6 +64,7 @@ class Timer{
 
 class Utils{
 public:
+    static string opencvtype2str(int type);
     static double getDiffAngle(double ang1, double ang2);
     static Mat getRotatedROIFromImage(Pose p, Size2f s, Mat &largeMap);
     static Mat rotateImage(Mat& input, double angle);

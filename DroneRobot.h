@@ -32,8 +32,11 @@ private:
     Pose findOdometry(Mat &prevImage, Mat &curImage);
     pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
     void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
+
+    void initializeFeatureMatching();
     void localizeWithTemplateMatching(Mat &currentMap);
     void localizeWithFeatureMatching(Mat& currentMap);
+    void localizeWithHierarchicalFeatureMatching(Mat& currentMap);
 
     bool offlineOdom;
     Pose prevRawOdom;
@@ -59,6 +62,9 @@ private:
     FlannBasedMatcher feature_matcher;
     std::vector<KeyPoint> keypoints_globalMap;
     Mat descriptors_globalMap;
+    vector< vector<FlannBasedMatcher*> > hMatcher;
+    vector< vector< vector<unsigned int>* > > idKeypoints;
+    Mat likelihood;
 
     Mat prevMap;
 

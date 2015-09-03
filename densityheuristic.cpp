@@ -57,8 +57,34 @@ std::string strategyName(STRATEGY s)
     case ENTROPY:
         return "ENTROPY";
         break;
+    case SINGLE_COLOR_DENSITY:
+        return "SDENSITY";
+        break;
     case DENSITY_LOCALCOLORDIFF:
         return "DENSITY_LOCALCOLORDIFF";
+        break;
+    }
+    return "ERROR";
+}
+
+std::string getColorName(COLOR_NAME cn)
+{
+    switch(cn)
+    {
+    case WHITE:
+        return "WHITE";
+        break;
+    case BLACK:
+        return "BLACK";
+        break;
+    case RED:
+        return "RED";
+        break;
+    case GREEN:
+        return "GREEN";
+        break;
+    case BLUE:
+        return "BLUE";
         break;
     }
     return "ERROR";
@@ -237,3 +263,119 @@ void DensityHeuristic::setLimiarAsMeanDifference(Mat &image, Mat &map)
     limiar = mean_diff;
 }
 
+SingleColorDensityHeuristic::SingleColorDensityHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd, COLOR_NAME colorName):
+DensityHeuristic(s,id,k,kW,kH,rad,l,cd)
+{
+    double min=0;
+    double max=255;//255;
+
+    // colors in RGB
+    switch(colorName)
+    {
+        case WHITE:
+            color = vec3(max,max,max);
+            break;
+        case BLACK:
+            color = vec3(min,min,min);
+            break;
+        case RED:
+            color = vec3(max,min,min);
+            break;
+        case GREEN:
+            color = vec3(min,max,min);
+            break;
+        case BLUE:
+            color = vec3(min,min,max);
+            break;
+        default:
+            color = vec3(min,min,min);
+    }
+
+    if(color_difference == RGBNORMA){ // convert to bgr
+        vec3 tmp = color;
+        color.x = tmp.z;
+        color.y = tmp.y;
+        color.z = tmp.x;
+        limiar = sqrt(pow(255.0,2)*3);
+    }else if(color_difference == CIELAB1976){
+        color = convert.RGB255toCIELAB(color);
+        limiar = sqrt(pow(100.0,2)+pow(99.0+87.0,2)+pow(95.0+108.0,2))/2;
+    }
+
+}
+
+double SingleColorDensityHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+{
+    // parameters for kernel read
+    int xini = x-radius;
+    int yini = y-radius;
+    int xend = x+radius;
+    int yend = y+radius;
+
+    // weighed mask having similar color
+    double wmsc = 0.0;
+    int kpos = 0;
+
+    // get color as double values
+    vec3 center = color;
+    // compute color density estimate
+    for(int w = xini; w<=xend; ++w)
+    {
+        for(int h = yini; h<=yend; ++h)
+        {
+            // Check if there is an UNDEF value
+            if(kernel[kpos]==0.0)
+            {
+                kpos++;
+                continue;
+            }
+
+            //determine if pixel is in free region
+            vec3 pos(getValuefromPixel(w,h,map));
+            vec3 free(0.0,0.0,0.0);
+
+            // approach an undef region?
+            if(pos!=free)
+                return HEURISTIC_UNDEFINED;
+
+            // Proceed with color difference computation
+            double diff;
+            vec3 currentColor(getValuefromPixel(w,h,image));
+            switch(color_difference){
+            case INTENSITYC:
+                diff=std::abs(center.x-currentColor.x);
+                break;
+            case CIELAB1976:
+            case RGBNORMA:
+                diff=convert.DeltaECIE1976(center,currentColor);
+                break;
+            case CMCLAB1984:
+                diff=convert.DeltaECMC1984(center,currentColor);
+                break;
+            case CIELAB1994:
+                diff=convert.DeltaECIE1994(center,currentColor);
+                break;
+            case CIELAB2000:
+                diff=convert.DeltaECIE2000(center,currentColor);
+                break;
+            case CIELAB2000MIX:
+                diff=convert.DeltaEMixCIE2000(center,currentColor);
+                break;
+            case CIELAB1994MIX:
+                diff=convert.DeltaEMixCIE1994(center,currentColor);
+                break;
+            default:
+                diff=convert.DeltaECIE1976(center,currentColor);
+            }
+//            cout << "color:" << color << " pixel:" << currentColor << " diff:" << diff << endl;
+//            wmsc += (diff/limiar<0.45?diff/limiar:0)*kernel[kpos];
+//            wmsc += diff/limiar*kernel[kpos];
+            wmsc += sech5(diff/limiar)*kernel[kpos];
+            kpos++;
+        }
+    }
+//    cout << "WMSC:" << wmsc << endl;
+//    if(wmsc>0.1)
+//        cout << wmsc << endl;
+    return wmsc;
+}

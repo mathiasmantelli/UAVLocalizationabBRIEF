@@ -30,6 +30,7 @@ int main( int argc, char** argv )
     double color_limiar=-1.0;
     int numBins = -1;
     std::vector<bool> validInput(8,false);
+    COLOR_NAME colorName;
 
     int p=1;
     while(p<argc)
@@ -266,12 +267,30 @@ int main( int argc, char** argv )
                     strategy=DENSITY;
                 else if(s.compare("ENTROPY")==0 || s.compare("entropy")==0)
                     strategy=ENTROPY;
+                else if(s.compare("SDENSITY")==0 || s.compare("sdensity")==0)
+                    strategy=SINGLE_COLOR_DENSITY;
                 else
                      cerr << "Invalid strategy: " << s << endl;
 
                 //increasing the string position
                 validInput[7]=true;
                 p+=2;
+
+                if(strategy==SINGLE_COLOR_DENSITY){
+                    std::string color(argv[p]);
+                    if(color.compare("WHITE")==0 || color.compare("white")==0)
+                        colorName=WHITE;
+                    else if(color.compare("BLACK")==0 || color.compare("black")==0)
+                        colorName=BLACK;
+                    else if(color.compare("RED")==0 || color.compare("red")==0)
+                        colorName=RED;
+                    else if(color.compare("BLUE")==0 || color.compare("blue")==0)
+                        colorName=BLUE;
+                    else if(color.compare("GREEN")==0 || color.compare("green")==0)
+                        colorName=GREEN;
+                    else
+                        cerr << "Invalid color name: " << color << endl;
+                }
             }
             else
             {
@@ -308,6 +327,8 @@ int main( int argc, char** argv )
             h = new DensityHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
             h = new EntropyHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
+        else if(strategy==SINGLE_COLOR_DENSITY)
+            h = new SingleColorDensityHeuristic(strategy, 0, g.m_kernelMask, g.width(), g.height(), radius, color_limiar, color_difference, colorName); // color_limiar=numBins
     }
     else if(kernelType.compare("Inverted")==0 || kernelType.compare("inverted")==0)
     {
@@ -317,7 +338,8 @@ int main( int argc, char** argv )
             h = new DensityHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
             h = new EntropyHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
-
+        else if(strategy==SINGLE_COLOR_DENSITY)
+            h = new SingleColorDensityHeuristic(strategy, 0, a.m_kernelMask, a.width(), a.height(), radius, color_limiar, color_difference, colorName); // color_limiar=numBins
     }
     else if(kernelType.compare("Circular")==0 || kernelType.compare("circular")==0)
     {
@@ -327,6 +349,8 @@ int main( int argc, char** argv )
             h = new DensityHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference);
         else if(strategy==ENTROPY)
             h = new EntropyHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference, color_limiar); // color_limiar=numBins
+        else if(strategy==SINGLE_COLOR_DENSITY)
+            h = new SingleColorDensityHeuristic(strategy, 0, c.m_kernelMask, c.width(), c.height(), radius, color_limiar, color_difference, colorName); // color_limiar=numBins
     }
 
     // Convert image to the appropriate format
@@ -385,9 +409,30 @@ int main( int argc, char** argv )
                 "_" + kernelT +
                 "_R" + std::to_string(int(radius)) +
                 "_T" + std::to_string(numBins) + ".txt";
+    }else if(strategy==SINGLE_COLOR_DENSITY){
+        cout << "Generating sdensity map file..." << endl;
+
+        cout << "0. Setting the limiar..." << endl;
+        cout << "Output name: " << outputName << endl;
+
+//        DensityHeuristic* dh = (DensityHeuristic*) h;
+//    //    if(dh->getColorDifference()==INTENSITYC)
+//            dh->setLimiarAsMeanDifference(used, map);
+//        //dh->setLimiar(2.3);
+//        cout << h->getLimiar() << endl;
+
+        // Create output file
+        outputName+=std::string("SDENSITY") +
+                "_" + colorDifferenceName(color_difference) +
+                "_" + kernelT +
+                "_R" + std::to_string(int(radius)) +
+                "_T" + std::to_string(h->getLimiar()) + "_C" + getColorName(colorName) + ".txt";
     }
 
     cout << "1. computing values: this will take a very long time for large kernels..." << endl;
+
+    resize(used,used,Size(0,0),0.2,0.2);
+    resize(map,map,Size(0,0),0.2,0.2);
 
     for(int y=h->getRadius();y<used.rows-h->getRadius();++y){
         for(int x=h->getRadius();x<used.cols-h->getRadius();++x)
@@ -415,6 +460,11 @@ int main( int argc, char** argv )
         stream.open(outputName.data(), std::fstream::out);
         stream << used.cols << " " << used.rows << " " << kernelType << " "
                << h->getRadius() << " " << color_difference << " " << numBins << endl;
+    }else if(strategy==SINGLE_COLOR_DENSITY){
+        cout << "2. Storing width, height, kernel type, radius, color-difference, limiar, and color" << endl;
+        stream.open(outputName.data(), std::fstream::out);
+        stream << used.cols << " " << used.rows << " " << kernelType << " "
+               << h->getRadius() << " " << color_difference << " " << h->getLimiar() << " " << getColorName(colorName) << endl;
     }
 
     // Storing data file...
@@ -452,6 +502,9 @@ int main( int argc, char** argv )
     }else if(strategy==ENTROPY){
         namedWindow( "Entropy Map", CV_WINDOW_KEEPRATIO );
         imshow( "Entropy Map", window );
+    }else if(strategy==SINGLE_COLOR_DENSITY){
+        namedWindow( "Single Color Density Map", CV_WINDOW_KEEPRATIO );
+        imshow( "Single Color Density Map", window );
     }
     namedWindow( "Original", CV_WINDOW_KEEPRATIO );
     imshow( "Original", image );
