@@ -24,7 +24,8 @@ SOURCES += \
     vec4.cpp \
     colorheuristic.cpp \
     Heuristic.cpp \
-    miheuristic.cpp
+    miheuristic.cpp \
+    MeanShiftHeuristic.cpp
 
 OTHER_FILES += \
     CONTROLE.txt
@@ -49,7 +50,8 @@ HEADERS += \
     vec4.h \
     RadiusVolumeTransferFunctions.h \
     colorheuristic.h \
-    miheuristic.h
+    miheuristic.h \
+    MeanShiftHeuristic.h
 
 INCLUDEPATH+=/usr/local/Aria/include
 INCLUDEPATH += -I/usr/local/include/opencv2

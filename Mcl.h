@@ -56,15 +56,13 @@ class MCL
         vector<double> heuristicValues;
         vector<double> heuristicGradients;
         vector<Mat> frameColorConverted;
-        Mat binaryFrameMask;        
+        Mat binaryFrameMask;
 
-        vector<ColorHeuristic*> ssdHeuristics;
-        vector<ColorHeuristic*> colorHeuristics;
-        vector<DensityHeuristic*> densityHeuristics;
+        bool removeDuplicates;
 
         void sampling(Pose &u, bool reliable);
         void weighting(Mat& z_robot, Pose &u);
-        void prepareWeighting();
+        void prepareWeighting(Mat &z);
         void resampling();
 
         void weightingSSD(Mat& z_robot);

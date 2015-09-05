@@ -42,6 +42,9 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cvtColor(labMap, labMap, CV_BGR2Lab);
     globalMaps.push_back(labMap);
 
+    Mat hsvMap;
+    cvtColor(originalMap, hsvMap, CV_BGR2HSV);
+    globalMaps.push_back(hsvMap);
 
     // extract binary map
      Mat map= imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
@@ -99,7 +102,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             // Create color heuristic
             heur = new ColorHeuristic(COLOR_ONLY, id, hT->colorDifference, hT->threshold);
         }
-        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY || hT->strategy == MUTUAL_INFORMATION )
+        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY || hT->strategy == MEAN_SHIFT || hT->strategy == MUTUAL_INFORMATION )
         {
             double r = hT->radius;
             double* kMask;
@@ -131,34 +134,38 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                 kHeight = c.height();
             }
 
-            // Create kernel heuristic
-            if(hT->strategy == DENSITY)
-                heur = new DensityHeuristic(DENSITY, id, kMask, kWidth, kHeight, hT->radius, hT->threshold, hT->colorDifference);
-            else if(hT->strategy == ENTROPY)
-                heur = new EntropyHeuristic(ENTROPY, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
-            else if(hT->strategy == MUTUAL_INFORMATION)
-                heur = new MIHeuristic(MUTUAL_INFORMATION, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+            if(hT->strategy == MEAN_SHIFT){
+                heur = new MeanShiftHeuristic(MEAN_SHIFT, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference);
+            }else{
+                // Create kernel heuristic
+                if(hT->strategy == DENSITY)
+                    heur = new DensityHeuristic(DENSITY, id, kMask, kWidth, kHeight, hT->radius, hT->threshold, hT->colorDifference);
+                else if(hT->strategy == ENTROPY)
+                    heur = new EntropyHeuristic(ENTROPY, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+                else if(hT->strategy == MUTUAL_INFORMATION)
+                    heur = new MIHeuristic(MUTUAL_INFORMATION, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
 
-            // Open cached map
-            string mapfilename = mapPath + "/";
-            if(hT->strategy == DENSITY)
-                mapfilename += "DENSITY";
-            else
-                mapfilename += "ENTROPY";
-            mapfilename += "_" + colorDifferenceName(hT->colorDifference) +
-                           "_" + kernelName(hT->kernelType) +
-                           "_R" + std::to_string(int(hT->radius));
-            if(hT->strategy == DENSITY)
-                mapfilename += "_T" + std::to_string(hT->threshold) + ".txt";
-            else
-            {
-                // Entropy Heuistic receives bins from threshold
-                mapfilename += "_T" + std::to_string(int(hT->threshold)) + ".txt";
+                // Open cached map
+                string mapfilename = mapPath + "/";
+                if(hT->strategy == DENSITY)
+                    mapfilename += "DENSITY";
+                else
+                    mapfilename += "ENTROPY";
+                mapfilename += "_" + colorDifferenceName(hT->colorDifference) +
+                               "_" + kernelName(hT->kernelType) +
+                               "_R" + std::to_string(int(hT->radius));
+                if(hT->strategy == DENSITY)
+                    mapfilename += "_T" + std::to_string(hT->threshold) + ".txt";
+                else
+                {
+                    // Entropy Heuistic receives bins from threshold
+                    mapfilename += "_T" + std::to_string(int(hT->threshold)) + ".txt";
+                }
+
+                cout << "Open file: " << mapfilename << endl;
+                FILE* f = fopen(mapfilename.c_str(),"r");
+                mg = new MapGrid(f);
             }
-
-            cout << "Open file: " << mapfilename << endl;
-            FILE* f = fopen(mapfilename.c_str(),"r");
-            mg = new MapGrid(f);
         }
 
         heuristics.push_back(heur);

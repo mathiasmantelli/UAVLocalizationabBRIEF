@@ -3,8 +3,6 @@
 
 #include "Heuristic.h"
 #include "angleutil.h"
-#include "ColorCPU.h"
-#include "RadiusVolumeTransferFunctions.h"
 
 // Creating a struct for heuristic config
 struct heuristicType{

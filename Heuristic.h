@@ -12,6 +12,7 @@ using namespace cv;
 #include <float.h>
 
 #include "ColorCPU.h"
+#include "RadiusVolumeTransferFunctions.h"
 
 #define HEURISTIC_UNDEFINED -DBL_MAX
 #define HEURISTIC_UNDEFINED_INT INT_MIN
@@ -27,6 +28,7 @@ enum STRATEGY{
     ENTROPY,
     MUTUAL_INFORMATION,
     DENSITY,
+    MEAN_SHIFT,
     SINGLE_COLOR_DENSITY,
     DENSITY_LOCALCOLORDIFF,
     CREATE_OBSERVATIONS,

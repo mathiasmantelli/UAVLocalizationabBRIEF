@@ -8,6 +8,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <set>
 
 #include <GL/glut.h>
 
@@ -31,7 +32,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 1;
+    numParticles = 10000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -90,6 +91,14 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cout << logName.str() << endl; cout.flush();
     particleLog.open(logName.str().c_str(), std::fstream::out);
     particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError\n";
+
+    // Check if must remove duplicates in resampling
+    removeDuplicates=false;
+    for(int h=0; h<heuristics.size(); ++h)
+        if(heuristics[h]->getType() == MEAN_SHIFT){
+            removeDuplicates=true;
+            break;
+        }
 }
 
 MCL::~MCL()
@@ -290,7 +299,7 @@ bool MCL::run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose& real)
     gettimeofday(&tstart, NULL);
 
     sampling(u,is_u_reliable);
-    prepareWeighting();
+    prepareWeighting(z);
     weighting(z,u);
 
 //    if(locTechnique == SSD)
@@ -546,6 +555,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         double varDensity = pow(0.1,2.0); //10%
         double varEntropy = pow(0.4,2.0); //10%
         double varMI = pow(0.1,2.0); //10%
+        double varMeanShift = pow(0.1,2.0); //10%
         double prob=1.0;
 
         for(int l=0;l<heuristics.size();++l)
@@ -585,6 +595,12 @@ void MCL::weighting(Mat& z_robot, Pose &u)
 
                     if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
                         prob *= 1.0/numParticles;
+                    break;
+                }
+                case MEAN_SHIFT:
+                {
+                    double val  = h->calculateValue(x,y,&globalMaps[mapID]);
+                    prob *= 1.0/(sqrt(2*M_PI*varMeanShift))*exp(-0.5*(pow(val,2)/varMeanShift));
                     break;
                 }
                 case ENTROPY:
@@ -899,20 +915,34 @@ void MCL::resampling()
         children[i]++;
     }
 
-
     // generate children from current particles
     vector<MCLparticle> nextGeneration;
-//    cout << "Children ";
-    for(int m=0; m<particles.size(); m++){
-//        //cout << children[m] << ' ';
-        for(int c=0; c<children[m]; c++)
-            nextGeneration.push_back(particles[m]);
+
+    if(removeDuplicates){
+        std::set<pair<int,int> > particlesSet;
+        std::set<pair<int,int> >::iterator it;
+
+        for(int m=0; m<particles.size(); m++){
+            if(children[m]>0){
+                pair<int,int> p(particles[m].p.x,particles[m].p.y);
+                if(particlesSet.find(p) == particlesSet.end()){
+                    nextGeneration.push_back(particles[m]);
+                    particlesSet.insert(p);
+                }
+            }
+        }
+    }else{
+        //    cout << "Children ";
+            for(int m=0; m<particles.size(); m++){
+        //        //cout << children[m] << ' ';
+                for(int c=0; c<children[m]; c++)
+                    nextGeneration.push_back(particles[m]);
+            }
     }
+
 //    cout << " size nextGeneration " << nextGeneration.size();
 
-
     particles = nextGeneration;
-
 }
 
 ////////////////////////
@@ -1017,7 +1047,7 @@ double MCL::sumAngles(double a, double b)
 
 }
 
-void MCL::prepareWeighting()
+void MCL::prepareWeighting(Mat &z)
 {
     // precomputing halfRows e halfCows
     int halfRows = frameColorConverted[0].rows/2;
@@ -1084,7 +1114,19 @@ void MCL::prepareWeighting()
                         &frameColorConverted[mapID], &binaryFrameMask);
             break;
             }
+        case MEAN_SHIFT:
+            {
+            MeanShiftHeuristic* msh = (MeanShiftHeuristic*) heuristics[c];
+            msh->updateSimilarityMap(z,globalMaps[3]);
 
+            for(int i=0; i<particles.size(); i++){
+                Pose delta = msh->computeMeanShift(particles[i].p.x,particles[i].p.y);
+                particles[i].p.x += delta.x;
+                particles[i].p.y += delta.y;
+            }
+
+            break;
+            }
         }
     }
 }

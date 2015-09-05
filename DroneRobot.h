@@ -10,6 +10,7 @@ using namespace cv;
 #include "densityheuristic.h"
 #include "colorheuristic.h"
 #include "miheuristic.h"
+#include "MeanShiftHeuristic.h"
 
 int selectMapID(int colorDiff);
 

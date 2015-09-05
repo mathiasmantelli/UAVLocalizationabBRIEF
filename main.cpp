@@ -124,6 +124,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=DENSITY;
                 else if(s.compare("SDENSITY")==0 || s.compare("sdensity")==0)
                     ht->strategy=SINGLE_COLOR_DENSITY;
+                else if(s.compare("MEANSHIFT")==0 || s.compare("meanshift")==0)
+                    ht->strategy=MEAN_SHIFT;
                 else if(s.compare("CREATE")==0 || s.compare("create")==0)
                     ht->strategy=CREATE_OBSERVATIONS;
                 else if(s.compare("TEMPLATE")==0 || s.compare("template")==0)
@@ -181,7 +183,11 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             p+=4;
 
             // Check if we must check for kernel data
-            if(ht->strategy==DENSITY || ht->strategy==SINGLE_COLOR_DENSITY || ht->strategy==ENTROPY || ht->strategy==MUTUAL_INFORMATION)
+            if(ht->strategy == DENSITY ||
+               ht->strategy == SINGLE_COLOR_DENSITY ||
+               ht->strategy == MEAN_SHIFT ||
+               ht->strategy == ENTROPY ||
+               ht->strategy==MUTUAL_INFORMATION)
             {
                 if(argc>=p+1) {
 
