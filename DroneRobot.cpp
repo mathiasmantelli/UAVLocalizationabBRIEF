@@ -57,9 +57,17 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     }
     globalMaps.push_back(map);
 
+    // Open ground truth file, if available
+    string rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
+    truthFile.open(rawname+"_truth.txt",std::fstream::in);
+    if(!truthFile.is_open()){
+        availableGTruth = false;
+    }else{
+        availableGTruth = true;
+        realPose = readGroundTruth();
+    }
 
     // Open odometry file, if available
-    string rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
     odomFile.open(rawname+"_odom.txt",std::fstream::in);
     if(!odomFile.is_open()){
         offlineOdom = false;
@@ -259,11 +267,11 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 //    if(colorHeuristics.size()>0)
 //        locTechnique = COLOR_ONLY;
 
-    Pose initialPose( 1324,486,DEG2RAD(20.0));
+//    Pose initialPose( 1324,486,DEG2RAD(20.0));
 
     // Initialize MCL
 //    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, prevRawOdom);
-    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, initialPose);
+    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, realPose);
 
     step = 0;
 
@@ -308,7 +316,7 @@ void DroneRobot::initializeFeatureMatching()
     int numCols = W/halfSize;
     cout << "numRows:" << numRows << " numCols:" << numCols << endl;
 
-    likelihood = Mat(numRows,numCols,descriptorsType,0.0);
+    likelihood = Mat(numRows,numCols,descriptorsType,1.0);
 
     // Allocate matrices
     hMatcher.resize(numCols);
@@ -461,11 +469,20 @@ void DroneRobot::run()
 
     prevMap = currentMap;
 
+    if(availableGTruth){
+        realPose = readGroundTruth();
+    }else{
+        realPose = prevRawOdom;
+    }
+
     // Obtain
     double time=0;
 
     // Run Monte Carlo Localization
-    mcLocalization->run(odometry_, odom_reliable, currentMap, time, prevRawOdom);
+    mcLocalization->run(odometry_, odom_reliable, currentMap, time, realPose);
+    if(availableGTruth){
+        mcLocalization->writeErrorLogFile(realPose.x,realPose.y,realPose.theta);
+    }
 
     // Navigation
     switch(motionMode_){
@@ -528,7 +545,7 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
     double maxMatches=-1;
     pair<int,int> best;
     std::vector< DMatch > best_matches;
-    Mat curlikelihood = Mat(likelihood.rows,likelihood.cols,likelihood.type(),0);
+    Mat curlikelihood = Mat(likelihood.rows,likelihood.cols,likelihood.type());
 
     for(int x=0; x<hMatcher.size(); ++x){
         for(int y=0; y<hMatcher[x].size(); ++y){
@@ -565,7 +582,7 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
                 }
             }
 
-            likelihood.at<float>(y,x) = good_matches.size();
+            curlikelihood.at<float>(y,x) = good_matches.size();
             sum += good_matches.size();
             if(int(good_matches.size()) > maxMatches){
                 maxMatches = good_matches.size();
@@ -590,7 +607,16 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
     // Normalize likelihood
 //    if(sum>0.0)
 //        likelihood /= sum;
-    likelihood /= maxMatches;
+//    likelihood /= maxMatches;
+//    curlikelihood /= maxMatches;
+
+    normalize(curlikelihood,curlikelihood);
+    Mat noisinho = Mat(likelihood.rows,likelihood.cols,likelihood.type(),0.1/float(likelihood.rows*likelihood.cols));
+
+    likelihood = likelihood.mul(curlikelihood);
+    likelihood += noisinho;
+    normalize(likelihood,likelihood);
+
 
     cout << "Total: " << sum << " Max Num: " << maxMatches << endl;
 
@@ -795,11 +821,31 @@ bool DroneRobot::readRawOdometryFromFile(Pose& p)
 
    p.theta = DEG2RAD(p.theta);
    while(p.theta > M_PI)
-       p.theta -= M_PI;
+       p.theta -= 2*M_PI;
    while(p.theta < -M_PI)
-       p.theta += M_PI;
+       p.theta += 2*M_PI;
 
    return true;
+}
+
+Pose DroneRobot::readGroundTruth()
+{
+   if(truthFile.peek() == fstream::traits_type::eof()) // keep the last good pose
+       return realPose;
+
+   string tempStr;
+   Pose p;
+   truthFile >> p.x >> p.y >> p.theta;
+   getline(truthFile,tempStr);
+
+   p.theta = DEG2RAD(p.theta);
+   while(p.theta > M_PI)
+       p.theta -= 2*M_PI;
+   while(p.theta < -M_PI)
+       p.theta += 2*M_PI;
+
+
+   return p;
 }
 
 void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode)

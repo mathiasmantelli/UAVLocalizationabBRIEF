@@ -30,6 +30,7 @@ private:
     void generateObservations(string imagePath);
     bool readRawOdometryFromFile(Pose& p);
     Pose readOdometry();
+    Pose readGroundTruth();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
     pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
     void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
@@ -40,9 +41,12 @@ private:
     void localizeWithHierarchicalFeatureMatching(Mat& currentMap);
 
     bool offlineOdom;
+    bool availableGTruth;
     Pose prevRawOdom;
     Pose prevOdometry;
+    Pose realPose;
     fstream odomFile;
+    fstream truthFile;
 
     STRATEGY locTechnique;
 

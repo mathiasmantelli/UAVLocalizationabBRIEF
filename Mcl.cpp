@@ -32,7 +32,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 10000;
+    numParticles = 150000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -42,6 +42,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
 
     realPose = initial;
     odomPose = initial;
+//    odomPose.theta = 0;
 
     std::default_random_engine generator;
 //    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
@@ -82,7 +83,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     struct tm *now = localtime(&t);
     stringstream logName;
 
-    logName << "Logs/mcl-" << -100+now->tm_year
+    logName << "../phir2framework/Logs/mcl-" << -100+now->tm_year
                     << setfill('0') << setw(2) << 1+now->tm_mon
                     << setfill('0') << setw(2) << now->tm_mday << '-'
                     << setfill('0') << setw(2) << now->tm_hour

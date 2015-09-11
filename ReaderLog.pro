@@ -8,26 +8,22 @@
 
 #QT       -= gui
 
-TARGET = MapfromImage
+TARGET = ReaderLog
 CONFIG   += console
 CONFIG   -= app_bundle
 QMAKE_CXXFLAGS += -std=c++0x
 
 TEMPLATE = app
 
-
-
-
-INCLUDEPATH += -I/usr/local/include/opencv2
-LIBS += -L/usr/local/lib `pkg-config opencv --libs`
-
 SOURCES += \
-    mainView.cpp \
-#    MapGrid.cpp \
-#    SomeKernels.cpp \
-#    Kernel.cpp
+    readerlog.cpp \
+    mainReader.cpp \
+    UTMConverter.cpp
 
 HEADERS += \
-#    MapGrid.h \
-#    SomeKernels.h \
-#    Kernel.h
+    readerlog.h \
+    UTMConverter.h
+
+
+INCLUDEPATH += -I/usr/local/include/opencv2 /usr/include/eigen3
+LIBS += -L/usr/local/lib `pkg-config opencv --libs`
