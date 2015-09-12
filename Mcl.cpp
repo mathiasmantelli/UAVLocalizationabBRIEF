@@ -32,7 +32,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 150000;
+    numParticles = 60000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -509,9 +509,9 @@ void MCL::sampling(Pose &u, bool reliable)
 
     if(reliable){
         for(int i=0; i<particles.size(); i++){
-            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
-            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*3.0;
-            particles[i].p.theta += u.theta + randomValue(generator)*3*M_PI/180.0;
+            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*9.0;
+            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*9.0;
+            particles[i].p.theta += u.theta + randomValue(generator)*5*M_PI/180.0;
 
             while(particles[i].p.theta > M_PI)
                 particles[i].p.theta -= 2*M_PI;
@@ -552,8 +552,8 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                 continue;
             }
 
-        double varColor = pow(3.0, 2.0); // normalized gaussian
-        double varDensity = pow(0.1,2.0); //10%
+        double varColor = pow(1.0, 2.0); // normalized gaussian
+        double varDensity = pow(0.25,2.0); //10%
         double varEntropy = pow(0.4,2.0); //10%
         double varMI = pow(0.1,2.0); //10%
         double varMeanShift = pow(0.1,2.0); //10%

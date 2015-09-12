@@ -34,6 +34,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
     Mat grayMap;
     cvtColor(originalMap,grayMap,CV_BGR2GRAY);
+    cvtColor(grayMap,grayMap,CV_GRAY2BGR);
     globalMaps.push_back(grayMap);
 
     Mat labMap;
@@ -452,9 +453,11 @@ void DroneRobot::run()
     if(step>1){
         if(offlineOdom){
             odometry_ = readOdometry();
+//            waitKey(0);
         }else{
 //            odometry_ = findOdometry(prevMap,currentMap);
-            pair<Pose,bool> od = findOdometryUsingFeatures(prevMap,currentMap);
+//            pair<Pose,bool> od = findOdometryUsingFeatures(prevMap,currentMap);
+            pair<Pose,bool> od = findOdometryUsingFeaturesMultiTh(prevMap,currentMap);
             odom_reliable = od.second;
             if(odom_reliable)
                 odometry_ = od.first;
@@ -970,7 +973,7 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
         warp_matrix = Mat::eye(2, 3, CV_32F);
 
     // Specify the number of iterations.
-    int number_of_iterations = 500;
+    int number_of_iterations = 5000;
 
     // Specify the threshold of the increment
     // in the correlation coefficient between two iterations
@@ -1024,8 +1027,27 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     return p;
 }
 
+pair<Pose,bool> DroneRobot::findOdometryUsingFeaturesMultiTh(Mat& prevImage, Mat& curImage)
+{
+    pair<Pose,bool> odom;
+    odom.second = false;
 
-pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curImage)
+    double cT=0.04;
+//    while(odom.second==false && cT<0.06){
+        odom = findOdometryUsingFeatures(prevImage, curImage, cT);
+//        cT += 0.01;
+//    }
+
+//    cout << "cT " << cT-0.01 << endl;
+
+    if(odom.second == false){
+        cout << "ECC" << endl;
+        odom.first = findOdometry(prevImage,curImage);
+    }
+    return odom;
+}
+
+pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curImage, double cT)
 {
     Mat img_1, img_2;
 
@@ -1035,8 +1057,8 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(10000,8);
-    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(10000,8);
+    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(20000,8,cT);
+    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(20000,8,cT);
 
     std::vector<KeyPoint> keypoints_1, keypoints_2;
     Mat descriptors_1, descriptors_2;
@@ -1092,7 +1114,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
 //    for( int i = 0; i < (int)good_matches.size(); i++ )
 //        printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx );
 
-    int minNumPoints = 7;
+    int minNumPoints = 6;
 
     // Find transformation
     std::vector<Point2f> points1, points2;
@@ -1140,7 +1162,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
         H = H.inv();
         drawMatchedImages(prevImage,curImage,H,MOTION_HOMOGRAPHY);
     }else{
-        waitKey(0);
+//        waitKey(0);
         return pair<Pose,bool>(p,false);
     }
 

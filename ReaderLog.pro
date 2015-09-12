@@ -18,11 +18,13 @@ TEMPLATE = app
 SOURCES += \
     readerlog.cpp \
     mainReader.cpp \
-    UTMConverter.cpp
+    UTMConverter.cpp \
+    PixelTransform.cpp
 
 HEADERS += \
     readerlog.h \
-    UTMConverter.h
+    UTMConverter.h \
+    PixelTransform.h
 
 
 INCLUDEPATH += -I/usr/local/include/opencv2 /usr/include/eigen3

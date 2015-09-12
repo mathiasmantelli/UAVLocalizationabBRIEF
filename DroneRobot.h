@@ -32,7 +32,8 @@ private:
     Pose readOdometry();
     Pose readGroundTruth();
     Pose findOdometry(Mat &prevImage, Mat &curImage);
-    pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage);
+    pair<Pose, bool> findOdometryUsingFeaturesMultiTh(Mat &prevImage, Mat &curImage);
+    pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage, double cT=0.04);
     void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
 
     void initializeFeatureMatching();
