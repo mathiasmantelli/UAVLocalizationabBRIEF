@@ -28,7 +28,8 @@ SOURCES += \
     miheuristic.cpp \
     Heuristic.cpp \
     MapGrid.cpp \
-    mainMap.cpp
+    mainMap.cpp \
+    Utils.cpp
 
 HEADERS += \
     ColorCPU.h \
@@ -43,7 +44,8 @@ HEADERS += \
     Heuristic.h \
     miheuristic.h \
     densityheuristic.h \
-    MapGrid.h
+    MapGrid.h \
+    Utils.h
 
 INCLUDEPATH += -I/usr/local/include/opencv2
 LIBS += -L/usr/local/lib `pkg-config opencv --libs`

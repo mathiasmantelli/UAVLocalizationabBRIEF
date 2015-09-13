@@ -3,7 +3,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/video.hpp>
 #include <tuple>
-
+#include "Utils.h"
 
 #include <map>
 using namespace std;
@@ -28,11 +28,6 @@ KernelHeuristic(s,id,l,cd,rad,k,kW,kH), numBinsPerChannel(nbins)
 
 double EntropyHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
 {
-    // parameters for kernel read
-//    int xini = max(x-radius,0);
-//    int yini = max(y-radius,0);
-//    int xend = min(x+radius,image->cols);
-//    int yend = min(y+radius,image->rows);
     int xini = x-radius;
     int yini = y-radius;
     int xend = x+radius;
@@ -46,13 +41,6 @@ double EntropyHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
 
     std::map<ID,double> histogram;
     std::map<ID,double>::iterator it;
-//    std::map<ID,unsigned int> histogram_int;
-//    std::map<ID,unsigned int>::iterator it_int;
-
-//    Mat kernelImage = image->colRange(xini,xend).rowRange(yini,yend);
-//    resize(kernelImage,kernelImage,Size(200,200),0,0,INTER_NEAREST);
-//    imshow("kernel",kernelImage);
-//    waitKey(1);
 
     // compute histogram
     for(int w = xini; w<=xend; ++w)
@@ -88,23 +76,6 @@ double EntropyHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
             kpos++;
         }
     }
-
-//    vector<int> histValues;
-//    for(it_int = histogram_int.begin(); it_int!= histogram_int.end(); ++it_int)
-//        histValues.push_back(it_int->second);
-//    int maxValue = *std::min_element(histValues.begin(),histValues.end());
-
-//    int sum_int=0;
-//    for(it_int = histogram_int.begin(); it_int!= histogram_int.end(); ++it_int)
-//        sum_int += it_int->second;
-//    if(fabs(sum-1.0) > 0.0001)
-//        cout << "sum Int " << sum_int << endl;
-
-//    double sum=0;
-//    for(it = histogram.begin(); it!= histogram.end(); ++it)
-//        sum += it->second;
-//    if(fabs(sum-1.0) > 0.0001)
-//        cout << "sum Double " << sum << endl;
 
     // Compute entropy
     double entropy = 0.0;
@@ -147,7 +118,7 @@ ID EntropyHeuristic::getIDfromColor(vec3 color)
 }
 
 // Mutual Information Computation
-double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *frame, Mat *frameMap)
+double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *frame, Mat *frameMap, Pose p)
 {
     /// Compute Mutual information
     double mi=0;
@@ -164,19 +135,32 @@ double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *fram
 
     int xiniF = frame->cols/2-radius;
     int yiniF = frame->rows/2-radius;
-    int xendF = frame->cols/2+radius;
-    int yendF = frame->rows/2+radius;
 
-
-    if(xini<0 || yini<0 || xend>=image->cols || yend>=image->rows)
+    // There are two extra pixels to facilitate subImage rotation and interpolation
+    if(xini-2<0 || yini-2<0 || xend+2>=image.cols || yend+2>=image.rows)
+    {
         return HEURISTIC_UNDEFINED;
+    }
+    // Rotation is positive when it is clockwise according to the documentation
+    // Creating a subimage and setting a border with extra pixels from the image to improve interpolation
 
-    int kpos = 0;
+    int size = 2*radius+1+2;
+    cv::Mat subImg = Utils::getRotatedROIFromImage(p,Point2f(size, size), image);
+    //imshow("ROI", subImg);
+    //waitKey(0);
+
+    // Get new boundaries for the patch extracted from the image
+    int xiniROI = x-subImg.cols/2-radius;
+    int yiniROI = y-subImg.rows/2-radius;
+
     vec3 free(0.0,0.0,0.0);
+    int kpos=0;
 
     // compute histogram
     int wF=xiniF;
     int hF=yiniF;
+    int wROI = xiniROI;
+    int hROI = yiniROI;
     for(int w = xini; w<=xend; ++w)
     {
         for(int h = yini; h<=yend; ++h)
@@ -191,12 +175,12 @@ double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *fram
             //determine if pixel is in free region
             vec3 pos(getValuefromPixel(w,h,map));
 
-            // ignore pixel outside map
-            if(pos!=free)
-                return HEURISTIC_UNDEFINED;
+//            // ignore pixel outside map
+//            if(pos!=free)
+//                return HEURISTIC_UNDEFINED;
 
             // Construct the n-d ID of the joint distribution
-            vec3 imageColor(getValuefromPixel(w,h,image));
+            vec3 imageColor(getValuefromPixel(wROI,hROI,&subImg));
             ID idImage =  getIDfromColor(imageColor);
             vec3 frameColor(getValuefromPixel(wF,hF,frame));
             ID idFrame =  getIDfromColor(frameColor);
@@ -212,8 +196,10 @@ double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *fram
 
             kpos++;
             hF++;
+            hROI++;
         }
         wF++;
+        wROI++;
     }
 
     // Compute joint Entropy
@@ -228,6 +214,7 @@ double MIHeuristic::calculateValue(int x, int y, Mat *image, Mat *map, Mat *fram
     mi = ((observedEntropy+cashedEntropy)*maxEntropyValue-jointEntropy)/(2*maxEntropyValue);
 
     //return mutual information;
+//    cout << "MI: " << mi << endl;
     return mi;
 }
 
