@@ -131,6 +131,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         disableCout();
     }
 
+    slowMethod=false;
     // Initialize heuristics
     for(int i=0;i<heuristicTypes.size();++i)
     {
@@ -205,8 +206,10 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                     heur = new DensityHeuristic(DENSITY, id, kMask, kWidth, kHeight, hT->radius, hT->threshold, hT->colorDifference);
                 else if(hT->strategy == ENTROPY)
                     heur = new EntropyHeuristic(ENTROPY, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
-                else if(hT->strategy == MUTUAL_INFORMATION)
+                else if(hT->strategy == MUTUAL_INFORMATION){
                     heur = new MIHeuristic(MUTUAL_INFORMATION, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+                    slowMethod=true;
+                }
 
                 // Open cached map
                 string mapfilename = mapPath + "/";
@@ -595,7 +598,7 @@ void DroneRobot::run()
     cout << "Image" << step << ' ';
     step += 1;
 
-    if(step%5==0 && runQuiet){
+    if((slowMethod || step%5==0) && runQuiet){
         enableCout();
         cout << "\r" << step*100/imagesNames.size() << "%" << flush;
         disableCout();

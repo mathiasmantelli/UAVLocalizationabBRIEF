@@ -43,6 +43,7 @@ private:
     void localizeWithFeatureMatching(Mat& currentMap);
     void localizeWithHierarchicalFeatureMatching(Mat& currentMap);
 
+    bool slowMethod;
     bool offlineOdom;
     bool isRawOdom;
     bool availableGTruth;

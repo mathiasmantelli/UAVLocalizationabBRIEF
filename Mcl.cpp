@@ -42,7 +42,8 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 70000;
+//    numParticles = 70000;
+    numParticles = 5000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -638,8 +639,8 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         double varColor = pow(1.0, 2.0); // normalized gaussian
         double varDensity = pow(0.25,2.0); //10%
         double varEntropy = pow(0.4,2.0); //10%
-        double varMI = pow(0.1,2.0); //10%
-        double varMeanShift = pow(0.1,2.0); //10%
+        double varMI = pow(1.0,2.0); //10%
+        double varMeanShift = pow(1.0,2.0); //10%
         double prob=1.0;
 
         for(int l=0;l<heuristics.size();++l)
@@ -697,29 +698,30 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                         prob *= 1.0/numParticles;
                     break;
                 }
-            case MUTUAL_INFORMATION:
-            {
-                MIHeuristic* mih = (MIHeuristic*) heuristics[l];
-                if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                case MUTUAL_INFORMATION:
                 {
-                    // Get cashed entropy
-                    mih->setCashedEntropy(cachedMaps[l]->getPureHeuristicValue(x,y));
-                    double val=mih->calculateValue(x, y,
-                                &globalMaps[mapID],
-                                &globalMaps[3], // Mask
-                                &frameColorConverted[mapID],
-                                &binaryFrameMask);
+                    MIHeuristic* mih = (MIHeuristic*) heuristics[l];
+                    if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                    {
+                        // Get cashed entropy
+                        mih->setCashedEntropy(cachedMaps[l]->getPureHeuristicValue(x,y));
+                        double val=mih->calculateValue(x, y,
+                                    globalMaps[mapID],
+                                    &globalMaps[3], // Mask
+                                    &frameColorConverted[mapID],
+                                    &binaryFrameMask,
+                                    particles[i].p);
 
-                    // tentativa de peso com MI:
-                    // racional=inverso da entropia mais próximo da média
-                    // Sem considerar rotação
-                    prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(1/val,2)/varMI));
+                        // tentativa de peso com MI:
+                        // racional=inverso da entropia mais próximo da média
+                        // Sem considerar rotação
+                        prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(val,2)/varMI));
 
+                    }
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
+                        prob *= 1.0/numParticles;
+                    break;
                 }
-                if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
-                    prob *= 1.0/numParticles;
-                break;
-            }
             }
         }
 
