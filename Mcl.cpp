@@ -639,7 +639,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         double varColor = pow(1.0, 2.0); // normalized gaussian
         double varDensity = pow(0.25,2.0); //10%
         double varEntropy = pow(0.4,2.0); //10%
-        double varMI = pow(1.0,2.0); //10%
+        double varMI = pow(0.15,2.0); //10%
         double varMeanShift = pow(1.0,2.0); //10%
         double prob=1.0;
 
