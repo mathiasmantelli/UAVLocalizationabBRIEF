@@ -14,6 +14,15 @@ using namespace cv;
 #define DEG2RAD(a) ((a) * M_PI / 180.0)
 #define RAD2DEG(a) ((a) * 180.0 / M_PI)
 
+class Pose3d
+{
+public:
+    Pose3d();
+
+    double x, y, z;
+    double roll, pitch, yaw;
+};
+
 class Pose{
     public:
         Pose();
@@ -64,7 +73,10 @@ class Timer{
 
 class Utils{
 public:
+    static vector<string> getListOfFiles(string dirname);
     static string opencvtype2str(int type);
+    static double getNorm(Point2f p);
+    static double getDiffAngle(Point2f p1, Point2f p2);
     static double getDiffAngle(double ang1, double ang2);
     static Mat getRotatedROIFromImage(Pose p, Size2f s, Mat &largeMap);
     static Mat rotateImage(Mat& input, double angle);

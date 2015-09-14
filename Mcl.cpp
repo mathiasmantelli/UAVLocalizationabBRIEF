@@ -22,8 +22,18 @@
 //////////////////////
 // Métodos Públicos //
 //////////////////////
+/// \brief MCL::MCL
+/// \param hVector
+/// \param cMaps
+/// \param gMaps
+/// \param initial
+///
 
-MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial):
+/// // TRAJ4 -s color diff-intensity 36  -s density diff-intensity 35.640406 circular 10 -s density diff-cie2000 13.889990 inverted 10
+/// // TRAJ2 -s color diff-cie2000 16    -s density diff-intensity 35.640406 circular 10 -s density diff-cie2000 13.889990 inverted 10
+
+
+MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial, string &lName):
     heuristics(hVector),
     heuristicValues(heuristics.size(),0.0),
     heuristicGradients(heuristics.size(),0.0),
@@ -32,7 +42,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-    numParticles = 60000;
+    numParticles = 70000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -75,23 +85,26 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
 
         }while(!valid);
 
-        cout << "Particle (" << i << ") " << RAD2DEG(particles[i].p.theta) << endl;
+//        cout << "Particle (" << i << ") " << RAD2DEG(particles[i].p.theta) << endl;
     }
 
     /******************** Prepare log file *****************************/
-    time_t t = time(0);
-    struct tm *now = localtime(&t);
-    stringstream logName;
-
-    logName << "../phir2framework/Logs/mcl-" << -100+now->tm_year
-                    << setfill('0') << setw(2) << 1+now->tm_mon
-                    << setfill('0') << setw(2) << now->tm_mday << '-'
-                    << setfill('0') << setw(2) << now->tm_hour
-                    << setfill('0') << setw(2) << now->tm_min
-                    << setfill('0') << setw(2) << now->tm_sec << ".txt";
-    cout << logName.str() << endl; cout.flush();
-    particleLog.open(logName.str().c_str(), std::fstream::out);
-    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError\n";
+    if(lName.empty()){
+        time_t t = time(0);
+        struct tm *now = localtime(&t);
+        stringstream logName;
+        logName << "../phir2framework/Logs/mcl-" << -100+now->tm_year
+                        << setfill('0') << setw(2) << 1+now->tm_mon
+                        << setfill('0') << setw(2) << now->tm_mday << '-'
+                        << setfill('0') << setw(2) << now->tm_hour
+                        << setfill('0') << setw(2) << now->tm_min
+                        << setfill('0') << setw(2) << now->tm_sec << ".txt";
+        cout << logName.str() << endl; cout.flush();
+        particleLog.open(logName.str().c_str(), std::fstream::out);
+    }else{
+        particleLog.open(lName.c_str(), std::fstream::out);
+    }
+    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
 
     // Check if must remove duplicates in resampling
     removeDuplicates=false;
@@ -100,6 +113,75 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
             removeDuplicates=true;
             break;
         }
+}
+
+void MCL::restart(Pose &initial, string &lName)
+{
+    lastOdometry.x=0.0;
+    lastOdometry.y=0.0;
+    lastOdometry.theta=0.0;
+
+    realPose = initial;
+    odomPose = initial;
+//    odomPose.theta = 0;
+
+    std::default_random_engine generator;
+//    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+//    std::uniform_real_distribution<double> randomY(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+    std::uniform_real_distribution<double> randomX(0.0,globalMaps[0].cols);
+    std::uniform_real_distribution<double> randomY(0.0,globalMaps[0].rows);
+    std::uniform_real_distribution<double> randomTh(-M_PI,M_PI);
+
+    // generate initial set
+    for(int i=0; i<particles.size(); i++){
+
+        bool valid = false;
+        do{
+
+            // sample particle pose
+            particles[i].p.x = randomX(generator);
+            particles[i].p.y = randomY(generator);
+            particles[i].p.theta = randomTh(generator);
+
+//            particles[i].p.x = globalMaps[0].cols/2;
+//            particles[i].p.y = globalMaps[0].rows/2;
+//            particles[i].p.theta = 0.0;
+
+//            particles[i].p=initial;
+
+            // check if particle is valid (known and not obstacle)
+//            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
+//               !realMap->isObstacle((int)particles[i].p.x,(int)particles[i].p.y))
+                valid = true;
+
+        }while(!valid);
+
+//        cout << "Particle (" << i << ") " << RAD2DEG(particles[i].p.theta) << endl;
+    }
+
+    realPath.clear();
+    odomPath.clear();
+
+    if(particleLog.is_open())
+        particleLog.close();
+
+    /******************** Prepare log file *****************************/
+    if(lName.empty()){
+        time_t t = time(0);
+        struct tm *now = localtime(&t);
+        stringstream logName;
+        logName << "../phir2framework/Logs/mcl-" << -100+now->tm_year
+                        << setfill('0') << setw(2) << 1+now->tm_mon
+                        << setfill('0') << setw(2) << now->tm_mday << '-'
+                        << setfill('0') << setw(2) << now->tm_hour
+                        << setfill('0') << setw(2) << now->tm_min
+                        << setfill('0') << setw(2) << now->tm_sec << ".txt";
+        cout << logName.str() << endl; cout.flush();
+        particleLog.open(logName.str().c_str(), std::fstream::out);
+    }else{
+        particleLog.open(lName.c_str(), std::fstream::out);
+    }
+    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
 }
 
 MCL::~MCL()
@@ -293,11 +375,11 @@ bool MCL::run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose& real)
 
 //    cout << "Starting MCL" << endl;
 
-    double elapsedTime, totalElapsedTime=0.0;
-    struct timeval tstart, tend;
+//    double elapsedTime, totalElapsedTime=0.0;
+//    struct timeval tstart, tend;
 
     // Start counting the elapsed time of this iteration
-    gettimeofday(&tstart, NULL);
+//    gettimeofday(&tstart, NULL);
 
     sampling(u,is_u_reliable);
     prepareWeighting(z);
@@ -322,25 +404,27 @@ bool MCL::run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose& real)
     lastOdometry = u;
 
     // Stop counting the elapsed time of this SLAM iteration
-    gettimeofday(&tend, NULL);
+//    gettimeofday(&tend, NULL);
 
     // Compute and print the elapsed time
-    if (tstart.tv_usec > tend.tv_usec) {
-        tend.tv_usec += 1000000;
-        tend.tv_sec--;
-    }
+//    if (tstart.tv_usec > tend.tv_usec) {
+//        tend.tv_usec += 1000000;
+//        tend.tv_sec--;
+//    }
     // increment time for density due to himm cost
-    if(locTechnique == DENSITY)
-        elapsedTime+=time;
+//    if(locTechnique == DENSITY)
+//        elapsedTime+=time;
 
-    elapsedTime = ((double)tend.tv_sec - (double)tstart.tv_sec) + ((double)tend.tv_usec - (double)tstart.tv_usec)/1000000.0;
+//    elapsedTime = ((double)tend.tv_sec - (double)tstart.tv_sec) + ((double)tend.tv_usec - (double)tstart.tv_usec)/1000000.0;
     //cout << "elapsed time MCL: " << elapsedTime << endl;
-    particleLog  <<  "elapsed time MCL: " << elapsedTime << endl;
+//    particleLog  <<  "elapsed time MCL: " << elapsedTime << endl;
     return true;
 }
 
 void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
 {
+    double elapsedTime=timer.getLapTime();
+
     /**************************************************************
      ******************  Position information  ********************
      **************************************************************/
@@ -472,16 +556,15 @@ void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
         stdevAngleError += 2*M_PI;
     varAngleError = stdevAngleError*stdevAngleError;
 
-
-
-    //particleLog << "trueX trueY meanPX meanPY closestx cloesty closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError\n";
+    //particleLog << "trueX trueY meanPX meanPY closestx cloesty closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
     particleLog  << "Standard Measurements: " << trueX <<  " " << trueY << " " << " " << meanPX << " " << meanPY << " "
-                 <<  closest.p.x << " " << closest.p.y << " " << closest.p.theta << " " << closest.w
+                 <<  closest.p.x << " " << closest.p.y << " " << closest.p.theta << " " << closest.w << " "
                  << meanParticleError <<  " " << meanParticleStdev  << " " << meanError << " " << stdevError << " "
                  << trueTh << " " << meanAngle << " " << angleStdev << " " << angleError << " " << stdevAngleError << " "
-                 << NEFF << endl;
+                 << NEFF << " " << elapsedTime << endl;
     particleLog.flush();
 
+    timer.startLap();
 }
 
 //////////////////////
@@ -509,8 +592,8 @@ void MCL::sampling(Pose &u, bool reliable)
 
     if(reliable){
         for(int i=0; i<particles.size(); i++){
-            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*9.0;
-            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*9.0;
+            particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
+            particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
             particles[i].p.theta += u.theta + randomValue(generator)*5*M_PI/180.0;
 
             while(particles[i].p.theta > M_PI)

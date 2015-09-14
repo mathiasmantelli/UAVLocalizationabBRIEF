@@ -5,6 +5,21 @@
 #include <errno.h>
 #include <string.h>
 #include <cmath>
+#include <dirent.h>
+
+vector<string> Utils::getListOfFiles(string dirname){
+    vector<string> files;
+    DIR* dirp = opendir(dirname.c_str());
+    if(dirp==NULL)
+        return files;
+    dirent* dp;
+    while ((dp = readdir(dirp)) != NULL){
+        string f = dp->d_name;
+        if(f.compare(".") != 0 && f.compare("..")  != 0)
+            files.push_back(dp->d_name);
+    }
+    return files;
+}
 
 string Utils::opencvtype2str(int type) {
   string r;
@@ -29,23 +44,33 @@ string Utils::opencvtype2str(int type) {
   return r;
 }
 
+double Utils::getNorm(Point2f p)
+{
+    return sqrt(p.x*p.x + p.y*p.y);
+}
+
+double Utils::getDiffAngle(Point2f p1, Point2f p2)
+{
+    return RAD2DEG(acos( (p1.x*p2.x + p1.y*p2.y) / (sqrt(p1.x*p1.x + p1.y*p1.y)*sqrt(p2.x*p2.x + p2.y*p2.y)) ));
+}
+
 double Utils::getDiffAngle(double ang1, double ang2)
 {
     // Compute diff between angles in -PI --> PI
     double dif1 =  ang1 - ang2;
     while(dif1 > M_PI)
-        dif1 -= M_PI;
+        dif1 -= 2*M_PI;
     while(dif1 < -M_PI)
-        dif1 += M_PI;
+        dif1 += 2*M_PI;
 
     // Compute diff between angles in 0 --> 2*PI
     double new360 = (ang1<0?ang1+2*M_PI:ang1);
     double prev360 = (ang2<0?ang2+2*M_PI:ang2);
     double dif2 = new360 - prev360;
     while(dif2 > M_PI)
-        dif2 -= M_PI;
+        dif2 -= 2*M_PI;
     while(dif2 < -M_PI)
-        dif2 += M_PI;
+        dif2 += 2*M_PI;
 
     if(fabs(dif1) < fabs(dif2))
         return dif1;
@@ -218,6 +243,12 @@ double Utils::matchImages(Mat& im_1, Mat& im_2, int match_method, InputArray &im
 /////////////////////////////////
 ///// METHODS OF CLASS POSE /////
 /////////////////////////////////
+
+Pose3d::Pose3d()
+{
+    x=y=z=roll=pitch=yaw=0.0;
+}
+
 
 Pose::Pose(){
     x=y=theta=0.0;

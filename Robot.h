@@ -53,6 +53,11 @@ protected:
     LogFile* logFile_;
     LogMode logMode_;
 
+    bool runQuiet;
+    streambuf* orig_buf;
+
+    void disableCout();
+    void enableCout();
 };
 
 #endif // ROBOT_H

@@ -24,6 +24,8 @@ LogMode logMode;
 string filename;
 pthread_mutex_t* mutex;
 
+bool quiet;
+
 void* startRobotThread (void* ref)
 {
     Robot* robot=(Robot*) ref;
@@ -48,6 +50,7 @@ void* startGlutThread (void* ref)
 
 	return NULL;
 }
+
 // Standard Input Error Message
 bool errorMessage(int position=-1, std::string message="")
 {
@@ -65,13 +68,15 @@ bool errorMessage(int position=-1, std::string message="")
     return false;
 }
 
-bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, std::string& mp, std::string& tp)
+bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, std::string& mp, std::string& tp, std::string& op, int& start, int& finish)
 {
     //data to collect
     Mat image;
     Mat map;
     std::string outputName;
     int p=1;
+
+    quiet=false;
 
     while(p<argc)
     {
@@ -80,6 +85,27 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
         {
             cout << "Usage: PhiR2Framework -e <path/> -o <path/outputDir/> -s <density|ssd|entropy> <diff-intensity|diff-rgb|diff-cie1976|diff-cmc1984|diff-cie1994|diff-cie2000|diff-cie1994mix|diff-cie2000mix> <double> <gaussian|circular|inverted> <int>" << endl;
             exit(0);
+        }
+        else if(!strncmp(argv[p], "-quiet", 6))
+        {
+            quiet=true;
+            p++;
+        }
+        // Check if this is the filename part -- step 1
+        else if(!strncmp(argv[p], "-o", 2) || !strncmp(argv[p], "-O", 2))
+        {
+            // check if there is a file name
+            if(argc>p+3)
+            {
+                op=argv[p+1];
+                start=stoi(argv[p+2]);
+                finish=stoi(argv[p+3]);
+                p+=4;
+            }
+            else
+            {
+                return errorMessage(p,"Failed to load output, missing argument");
+            }
         }
         // Check if this is the filename part -- step 1
         else if(!strncmp(argv[p], "-e", 2) || !strncmp(argv[p], "-E", 2))
@@ -262,26 +288,32 @@ int main(int argc, char* argv[])
     filename = "";
 
     // load config from command line
-    std::string mapPath, trajPath;
+    std::string mapPath, trajPath, outputPath;
+    int start=-1;
+    int finish=-1;
 
     vector< heuristicType* > heuristicTypes;
-    if(!config(argc, argv, heuristicTypes, mapPath, trajPath))
+    if(!config(argc, argv, heuristicTypes, mapPath, trajPath, outputPath, start, finish))
         exit(1);
 
     Robot* r;
     // r = new Robot();
     // r = new PioneerRobot();
-    r = new DroneRobot(mapPath,trajPath,heuristicTypes);
+    r = new DroneRobot(mapPath,trajPath,heuristicTypes,quiet,outputPath,start,finish);
 
-    pthread_t robotThread, glutThread;
-    mutex = new pthread_mutex_t;
-    pthread_mutex_unlock(mutex);
+    if(quiet){
+        startRobotThread((void*)r);
+    }else{
+        pthread_t robotThread, glutThread;
+        mutex = new pthread_mutex_t;
+        pthread_mutex_unlock(mutex);
 
-    pthread_create(&(robotThread),NULL,startRobotThread,(void*)r);
-    pthread_create(&(glutThread),NULL,startGlutThread,(void*)r);
+        pthread_create(&(robotThread),NULL,startRobotThread,(void*)r);
+        pthread_create(&(glutThread),NULL,startGlutThread,(void*)r);
 
-    pthread_join(robotThread, 0);
-    pthread_join(glutThread, 0);
+        pthread_join(robotThread, 0);
+        pthread_join(glutThread, 0);
+    }
 
     return 0;
 }

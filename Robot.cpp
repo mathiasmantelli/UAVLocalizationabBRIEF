@@ -169,3 +169,17 @@ void Robot::drawPath()
 
     }
 }
+
+void Robot::disableCout()
+{
+    // get underlying buffer
+    orig_buf = cout.rdbuf();
+    // set null
+    cout.rdbuf(0);
+}
+
+void Robot::enableCout()
+{
+    // restore buffer
+    cout.rdbuf(orig_buf);
+}

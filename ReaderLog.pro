@@ -19,13 +19,14 @@ SOURCES += \
     readerlog.cpp \
     mainReader.cpp \
     UTMConverter.cpp \
-    PixelTransform.cpp
+    PixelTransform.cpp \
+    Utils.cpp
 
 HEADERS += \
     readerlog.h \
     UTMConverter.h \
-    PixelTransform.h
-
+    PixelTransform.h \
+    Utils.h
 
 INCLUDEPATH += -I/usr/local/include/opencv2 /usr/include/eigen3
 LIBS += -L/usr/local/lib `pkg-config opencv --libs`

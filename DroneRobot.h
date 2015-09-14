@@ -18,7 +18,7 @@ class DroneRobot: public Robot
 {
 public:
     DroneRobot();
-    DroneRobot(string& mapPath, string& trajectoryPath, vector< heuristicType* > &heuristicTypes);
+    DroneRobot(string& mapPath, string& trajectoryPath, vector< heuristicType* > &heuristicTypes, bool quiet, string& outputName, int start, int finish);
     ~DroneRobot();
 
     void initialize(ConnectionMode cmode, LogMode lmode, string fname);
@@ -30,24 +30,33 @@ private:
     void generateObservations(string imagePath);
     bool readRawOdometryFromFile(Pose& p);
     Pose readOdometry();
+    pair<Pose, bool> readOdometryNew();
     Pose readGroundTruth();
-    Pose findOdometry(Mat &prevImage, Mat &curImage);
-    pair<Pose, bool> findOdometryUsingFeaturesMultiTh(Mat &prevImage, Mat &curImage);
+    pair<Pose, bool> findOdometryUsingECC(Mat &prevImage, Mat &curImage);
+    pair<Pose, bool> findOdometry(Mat &prevImage, Mat &curImage);
     pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage, double cT=0.04);
-    void drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
+    void drawMatchedImages(Mat& prevImage, Mat& curImage, const Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
 
+    void reinitialize();
     void initializeFeatureMatching();
     void localizeWithTemplateMatching(Mat &currentMap);
     void localizeWithFeatureMatching(Mat& currentMap);
     void localizeWithHierarchicalFeatureMatching(Mat& currentMap);
 
     bool offlineOdom;
+    bool isRawOdom;
     bool availableGTruth;
     Pose prevRawOdom;
     Pose prevOdometry;
     Pose realPose;
     fstream odomFile;
     fstream truthFile;
+
+    int start;
+    int finish;
+    int current;
+    string rawname;
+    string outputName;
 
     STRATEGY locTechnique;
 

@@ -520,6 +520,62 @@ void plotIMU(vector<IMU>& imagesIMU, Mat& canvas)
 //    plotData("GyrZ",gyrZ);
 }
 
+vector<Pose3d> estimateOdometry(vector<IMU>& imu)
+{
+//    vector<Pose3d> odom;
+//    Pose3d pos;
+//    odom.push_back(pos);
+
+    enum { X, Y, Z};
+    enum { Rol, Pit, Yaw}; // roll pitch yaw
+
+    Vector3d pos;
+    Vector3d vel;
+    Vector3d att;
+
+    vector<double> px, py, pz, vx, vy, vz, ar, ap, ay;
+
+    for(int i=1; i<imu.size();++i){
+        // Get dT in seconds
+        double dT = (imu[i].values[IMU::timeMS]-imu[i-1].values[IMU::timeMS])/1000.0;
+
+        // Rotate the acceleration vector from the ROBOT frame to the WORLD frame
+        Eigen::Vector3d accelR(imu[i].values[IMU::AccX], imu[i].values[IMU::AccY], imu[i].values[IMU::AccZ]);
+
+        Eigen::AngleAxisd rollAngle(att[Rol], Eigen::Vector3d::UnitX());
+        Eigen::AngleAxisd pitchAngle(att[Pit], Eigen::Vector3d::UnitY());
+        Eigen::AngleAxisd yawAngle(att[Yaw], Eigen::Vector3d::UnitZ());
+        Eigen::Vector3d accel = yawAngle * pitchAngle * rollAngle * accelR;
+
+        // Cancelgravity gravity
+        accel[Z] += 9.8666269;
+
+        // Update the velocity
+        vel += accel * dT;
+
+        // Update the position
+        pos += vel * dT;
+//        cout <<  "a " << accel[X] << ',' << accel[Y] << ',' << accel[Z]
+//             << " v " << vel[X] << ',' << vel[Y] << ',' << vel[Z]
+//             << " p " << pos[X] << ',' << pos[Y] << ',' << pos[Z] << endl;
+
+        // Update the attitude
+        Eigen::Vector3d gyro(imu[i].values[IMU::GyrX], imu[i].values[IMU::GyrY], imu[i].values[IMU::GyrZ]);
+        att += gyro * dT;
+
+        px.push_back(pos[X]); py.push_back(pos[Y]); pz.push_back(pos[Z]);
+        vx.push_back(vel[X]); vy.push_back(vel[Y]); vz.push_back(vel[Z]);
+        ar.push_back(att[Rol]); ap.push_back(att[Pit]); ay.push_back(att[Yaw]);
+    }
+
+//    Mat canvas(400,800,CV_8UC3,Scalar(255,255,255));
+//    plotData("PosX",px,canvas,Scalar(160,160,160));
+//    plotData("PosY",py,canvas,Scalar(0,0,0));
+////    plotData("PosZ",pz,canvas,Scalar(0,0,0));
+//    imshow("Odom",canvas);
+}
+
+
 int main(int argc, char* argv[])
 {
     string lf, tp;
@@ -587,6 +643,8 @@ int main(int argc, char* argv[])
     waitKey();
 
     exportGroundTruth(tp, imagesPixelCoords, imagesHeadings);
+
+    estimateOdometry(imu1);
 
     return 0;
 }

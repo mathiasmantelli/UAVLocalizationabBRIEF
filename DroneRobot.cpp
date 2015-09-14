@@ -17,8 +17,19 @@ DroneRobot::DroneRobot()
 
 }
 
-DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristicType* > &heuristicTypes)
+DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristicType* > &heuristicTypes, bool quiet, string& oName, int startVal, int finishVal)
 {
+    runQuiet = quiet;
+    if(runQuiet){
+        cout << "Initializing" << flush;
+        disableCout();
+    }
+
+    start=startVal;
+    finish=finishVal;
+    current=start;
+    outputName=oName;
+
     // Read fullMap
     Mat originalMap = imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
     if(! originalMap.data )                              // Check for invalid input
@@ -47,8 +58,14 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cvtColor(originalMap, hsvMap, CV_BGR2HSV);
     globalMaps.push_back(hsvMap);
 
+    if(runQuiet){
+        enableCout();
+        cout << "." << flush;
+        disableCout();
+    }
+
     // extract binary map
-     Mat map= imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
+    Mat map= imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
 
     // check if image is valid
     if(!map.data)
@@ -59,7 +76,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     globalMaps.push_back(map);
 
     // Open ground truth file, if available
-    string rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
+    rawname = trajectoryName.substr(0, trajectoryName.find_last_of("."));
     truthFile.open(rawname+"_truth.txt",std::fstream::in);
     if(!truthFile.is_open()){
         availableGTruth = false;
@@ -71,10 +88,47 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     // Open odometry file, if available
     odomFile.open(rawname+"_odom.txt",std::fstream::in);
     if(!odomFile.is_open()){
-        offlineOdom = false;
+
+        // Check if there are available offline odoms
+        vector<string> opaths = Utils::getListOfFiles(rawname);
+        cout << "Num offline odoms " << opaths.size() << endl;
+
+        if(!opaths.empty()){
+            std::default_random_engine generator;
+            std::uniform_int_distribution<int> randomVal(0,opaths.size());
+            int id=randomVal(generator);
+
+            odomFile.open(rawname+"/"+opaths[id],std::fstream::in);
+            offlineOdom = true;
+            isRawOdom = false;
+        }else{
+            offlineOdom = false;
+
+            /******************** Prepare odom file *****************************/
+            time_t t = time(0);
+            struct tm *now = localtime(&t);
+            stringstream odomName;
+
+            odomName << rawname << "/odom-" << -100+now->tm_year
+                            << setfill('0') << setw(2) << 1+now->tm_mon
+                            << setfill('0') << setw(2) << now->tm_mday << '-'
+                            << setfill('0') << setw(2) << now->tm_hour
+                            << setfill('0') << setw(2) << now->tm_min
+                            << setfill('0') << setw(2) << now->tm_sec << ".txt";
+            cout << odomName.str() << endl; cout.flush();
+
+            odomFile.open(odomName.str(),std::fstream::out);
+        }
     }else{
         offlineOdom = true;
+        isRawOdom = true;
         readRawOdometryFromFile(prevRawOdom);
+    }
+
+    if(runQuiet){
+        enableCout();
+        cout << "." << flush;
+        disableCout();
     }
 
     // Initialize heuristics
@@ -177,8 +231,20 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             }
         }
 
+        if(runQuiet){
+            enableCout();
+            cout << "." << flush;
+            disableCout();
+        }
+
         heuristics.push_back(heur);
         cachedMaps.push_back(mg);
+    }
+
+    if(runQuiet){
+        enableCout();
+        cout << "." << flush;
+        disableCout();
     }
 
     // Read images names
@@ -193,6 +259,82 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
     if(heuristicTypes[0]->strategy == FEATURE_MATCHING)
         initializeFeatureMatching();
+
+    if(runQuiet){
+        enableCout();
+        cout << " Running " << endl;
+        disableCout();
+    }
+}
+
+void DroneRobot::reinitialize()
+{
+    // Open ground truth file, if available
+    if(truthFile.is_open())
+        truthFile.close();
+    truthFile.open(rawname+"_truth.txt",std::fstream::in);
+    if(!truthFile.is_open()){
+        availableGTruth = false;
+    }else{
+        availableGTruth = true;
+        realPose = readGroundTruth();
+    }
+
+    // Open odometry file, if available
+    if(odomFile.is_open())
+        odomFile.close();
+    odomFile.open(rawname+"_odom.txt",std::fstream::in);
+    if(!odomFile.is_open()){
+
+        // Check if there are available offline odoms
+        vector<string> opaths = Utils::getListOfFiles(rawname);
+        cout << "Num offline odoms " << opaths.size() << endl;
+
+        if(!opaths.empty()){
+            std::default_random_engine generator;
+            std::uniform_int_distribution<int> randomVal(0,opaths.size());
+            int id=randomVal(generator);
+
+            odomFile.open(rawname+"/"+opaths[id],std::fstream::in);
+            offlineOdom = true;
+            isRawOdom = false;
+        }else{
+            offlineOdom = false;
+
+            /******************** Prepare odom file *****************************/
+            time_t t = time(0);
+            struct tm *now = localtime(&t);
+            stringstream odomName;
+
+            odomName << rawname << "/odom-" << -100+now->tm_year
+                            << setfill('0') << setw(2) << 1+now->tm_mon
+                            << setfill('0') << setw(2) << now->tm_mday << '-'
+                            << setfill('0') << setw(2) << now->tm_hour
+                            << setfill('0') << setw(2) << now->tm_min
+                            << setfill('0') << setw(2) << now->tm_sec << ".txt";
+            cout << odomName.str() << endl; cout.flush();
+
+            odomFile.open(odomName.str(),std::fstream::out);
+        }
+    }else{
+        offlineOdom = true;
+        isRawOdom = true;
+        readRawOdometryFromFile(prevRawOdom);
+    }
+
+    string oName;
+    if(!outputName.empty())
+        oName = outputName+to_string(current)+".txt";
+    mcLocalization->restart(realPose,oName);
+
+    step = 0;
+
+    if(runQuiet){
+        enableCout();
+        cout << " Running " << endl;
+        disableCout();
+    }
+
 }
 
 DroneRobot::~DroneRobot()
@@ -272,7 +414,10 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 
     // Initialize MCL
 //    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, prevRawOdom);
-    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, realPose);
+    string oName;
+    if(!outputName.empty())
+        oName = outputName+to_string(current)+".txt";
+    mcLocalization = new MCL(heuristics, cachedMaps, globalMaps, realPose, oName);
 
     step = 0;
 
@@ -416,8 +561,20 @@ void computeEntropyMap(Mat& image_orig, Mat& mask)
 
 void DroneRobot::run()
 {
-    if(step >= imagesNames.size())
-        return;
+    if(step >= imagesNames.size()){
+        if(runQuiet){
+            enableCout();
+            cout << "\r" << step*100/imagesNames.size() << "%" << endl;
+            disableCout();
+        }
+
+        if(current==finish)
+            exit(0);
+        else{
+            current++;
+            reinitialize();
+        }
+    }
 
     // Read image
     Mat currentMap = imread(imagesNames[step],CV_LOAD_IMAGE_COLOR);
@@ -429,11 +586,20 @@ void DroneRobot::run()
 
 //    Mat window;
 //    resize(currentMap,window,Size(0,0),0.2,0.2);
-    imshow( "Local Map", currentMap );
-    waitKey(100);
+
+    if(!runQuiet){
+        imshow( "Local Map", currentMap );
+        waitKey(100);
+    }
 
     cout << "Image" << step << ' ';
     step += 1;
+
+    if(step%5==0 && runQuiet){
+        enableCout();
+        cout << "\r" << step*100/imagesNames.size() << "%" << flush;
+        disableCout();
+    }
 
 //    computeEntropyMap(currentMap, mask);
 //    return;
@@ -452,17 +618,25 @@ void DroneRobot::run()
     // Compute or read Odometry
     if(step>1){
         if(offlineOdom){
-            odometry_ = readOdometry();
+            if(isRawOdom){
+                odometry_ = readOdometry();
+            }else{
+                pair<Pose,bool> od = readOdometryNew();
+                odometry_ = od.first;
+                odom_reliable = od.second;
+            }
 //            waitKey(0);
         }else{
 //            odometry_ = findOdometry(prevMap,currentMap);
 //            pair<Pose,bool> od = findOdometryUsingFeatures(prevMap,currentMap);
-            pair<Pose,bool> od = findOdometryUsingFeaturesMultiTh(prevMap,currentMap);
+            pair<Pose,bool> od = findOdometry(prevMap,currentMap);
             odom_reliable = od.second;
             if(odom_reliable)
                 odometry_ = od.first;
             else
-                odometry_ = prevOdometry;
+                odometry_ = Pose(0,0,0.0);
+//                odometry_ = prevOdometry;
+            odomFile << odometry_.x << ' ' << odometry_.y << ' ' << odometry_.theta << ' ' << odom_reliable << endl;
         }
     }else{
         odometry_ = Pose(0,0,0.0);
@@ -795,6 +969,20 @@ void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
 
 }
 
+pair<Pose,bool> DroneRobot::readOdometryNew()
+{
+    if(odomFile.peek() == fstream::traits_type::eof())
+        return pair<Pose,bool>(Pose(),false);
+
+    Pose odom;
+    bool reliable;
+    string tempStr;
+    odomFile >> odom.x >> odom.y >> odom.theta >> reliable;
+    getline(odomFile,tempStr);
+
+    return pair<Pose,bool>(odom,reliable);
+}
+
 Pose DroneRobot::readOdometry()
 {
     Pose newRawOdom;
@@ -806,10 +994,11 @@ Pose DroneRobot::readOdometry()
     odom.x = cos(-prevRawOdom.theta)*deltaX - sin(-prevRawOdom.theta)*deltaY;
     odom.y = sin(-prevRawOdom.theta)*deltaX + cos(-prevRawOdom.theta)*deltaY;
     odom.theta = Utils::getDiffAngle(newRawOdom.theta,prevRawOdom.theta);
-//    cout << "RAW " << newRawOdom.theta << " - " << prevRawOdom.theta << " = " << odom.theta << endl;
+    cout << "RAW " << RAD2DEG(newRawOdom.theta)
+         << " - "  << RAD2DEG(prevRawOdom.theta)
+         << " = "  << RAD2DEG(odom.theta) << endl;
 
     prevRawOdom = newRawOdom;
-
     return odom;
 }
 
@@ -851,7 +1040,7 @@ Pose DroneRobot::readGroundTruth()
    return p;
 }
 
-void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matrix, const int warp_mode)
+void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, const Mat& wm, const int warp_mode)
 {
     vector<Point2f> yourPoints;
     yourPoints.push_back(Point2f(0,0));
@@ -861,6 +1050,8 @@ void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matr
     yourPoints.push_back(Point2f(curImage.cols/2,curImage.rows/2));
     yourPoints.push_back(Point2f(curImage.cols,curImage.rows/2));
     yourPoints.push_back(Point2f(curImage.cols/2,0));
+
+    Mat warp_matrix = wm.clone();
 
     vector<Point2f> transformedPoints;
     transformedPoints.resize(yourPoints.size());
@@ -939,10 +1130,10 @@ void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, Mat& warp_matr
 //    namedWindow( "Image Blank", WINDOW_KEEPRATIO );
     imshow("Image Blank", blank);
 //    imshow("Image 2 Aligned", im2_aligned);
-    waitKey(0);
+//    waitKey(0);
 }
 
-Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
+pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
 {
     Mat im1_gray, im2_gray;
 
@@ -951,8 +1142,8 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
 
     // Convert images to gray scale;
-    cvtColor(prevImage, im1_gray, CV_BGR2GRAY);
-    cvtColor(curImage, im2_gray, CV_BGR2GRAY);
+    cvtColor(prevImage, im2_gray, CV_BGR2GRAY);
+    cvtColor(curImage, im1_gray, CV_BGR2GRAY);
 
 //    Canny(im1_gray,im1_gray,10,30,5);
 //    Canny(im2_gray,im2_gray,10,30,5);
@@ -973,7 +1164,7 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
         warp_matrix = Mat::eye(2, 3, CV_32F);
 
     // Specify the number of iterations.
-    int number_of_iterations = 5000;
+    int number_of_iterations = 1000;
 
     // Specify the threshold of the increment
     // in the correlation coefficient between two iterations
@@ -982,6 +1173,8 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     // Define termination criteria
     TermCriteria criteria (TermCriteria::COUNT+TermCriteria::EPS, number_of_iterations, termination_eps);
 
+    try
+    {
     // Run the ECC algorithm. The results are stored in warp_matrix.
     findTransformECC(
                      im1_gray,
@@ -990,6 +1183,15 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
                      warp_mode,
                      criteria
                  );
+    }
+    catch(cv::Exception e)
+    {
+        if (e.code == cv::Error::StsNoConv)
+        {
+            cout << "findTransformECC did not converge";
+            return pair<Pose,bool>(odometry_,false);
+        }
+    }
 
     // Check quality of matching
     Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
@@ -1011,7 +1213,8 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     double w = result.at<float>(0,0);
     cout << "ODOMETRIA " << (w>0.96?"BOA":"RUIM") << " MANO (" << w << ")" << endl;
 
-    drawMatchedImages(prevImage,curImage,warp_matrix);
+    if(!runQuiet)
+        drawMatchedImages(curImage,prevImage,warp_matrix);
 
     char k = waitKey(20);
     if (k=='g' || k=='G')
@@ -1024,10 +1227,10 @@ Pose DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
     p.y = warp_matrix.at<float>(1,2);
     p.theta = acos(warp_matrix.at<float>(0,0));
 
-    return p;
+    return pair<Pose,bool>(p,true);
 }
 
-pair<Pose,bool> DroneRobot::findOdometryUsingFeaturesMultiTh(Mat& prevImage, Mat& curImage)
+pair<Pose,bool> DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 {
     pair<Pose,bool> odom;
     odom.second = false;
@@ -1041,9 +1244,12 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeaturesMultiTh(Mat& prevImage, Mat
 //    cout << "cT " << cT-0.01 << endl;
 
     if(odom.second == false){
-        cout << "ECC" << endl;
-        odom.first = findOdometry(prevImage,curImage);
+//        waitKey(10);
+//        cout << "ECC" << endl;
+//        odom = findOdometryUsingECC(prevImage,curImage);
     }
+    if(!runQuiet)
+        waitKey();
     return odom;
 }
 
@@ -1088,9 +1294,6 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
         if( dist > max_dist )
             max_dist = dist;
     }
-
-    printf("-- Max dist : %f \n", max_dist );
-    printf("-- Min dist : %f \n", min_dist );
 
     //-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
     //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
@@ -1154,27 +1357,70 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     }
 
     Pose p;
+    bool isGood = false;
 
-    //-- Show detected matches
-    imshow( "Good Matches", img_matches );
 //    if(good_matches.size()>=minNumPoints)
     if(!H.empty()){
         H = H.inv();
-        drawMatchedImages(prevImage,curImage,H,MOTION_HOMOGRAPHY);
-    }else{
-//        waitKey(0);
-        return pair<Pose,bool>(p,false);
+        if(!runQuiet)
+            drawMatchedImages(prevImage,curImage,H,MOTION_HOMOGRAPHY);
+
+        // Compute approximate translation and rotation
+        p.y = scene_corners[4].x - obj_corners[4].x;
+        p.x = -(scene_corners[4].y - obj_corners[4].y);
+        p.theta = atan2(scene_corners[5].y-scene_corners[4].y,scene_corners[5].x-scene_corners[4].x);
+    //    p.theta += M_PI/2.0;
+        isGood = true;
+
+        // Check if it is a good transformation
+        // 1st - the displacement must be smaller than half diagonal of the image (times 0.8)
+        double origDiag = Utils::getNorm(obj_corners[1]-obj_corners[3]);
+        double ratioDisp = Utils::getNorm(scene_corners[4]-obj_corners[4])/(origDiag*0.5);
+        if(ratioDisp > 0.8){
+            cout << "OPS - displacement larger than half diagonal of the image (" << ratioDisp << ")" << endl;
+            isGood = false;
+        }
+        // 2nd - diag sizes must be similar between themselves and similar to the original image
+        double diag1 = Utils::getNorm(scene_corners[1]-scene_corners[3]);
+        double diag2 = Utils::getNorm(scene_corners[0]-scene_corners[2]);
+        double ratioModDiag, ratioDiag;
+        if(diag1>diag2){
+            ratioModDiag = diag1/diag2;
+            ratioDiag = diag1/origDiag;
+        }else{
+            ratioModDiag = diag2/diag1;
+            ratioDiag = diag2/origDiag;
+        }
+        if(ratioModDiag > 1.4 || fabs(ratioDiag-1.0) > 0.4){
+            cout << "OPS - diag sizes not similar between themselves (" << ratioModDiag
+                 <<  ") or to the original image (" << ratioDiag << ")" << endl;
+            isGood = false;
+        }
+        // 3rd - the angle between the axes must be around 90 degrees
+        double angle = Utils::getDiffAngle(scene_corners[5]-scene_corners[4], scene_corners[6]-scene_corners[4]);
+        if(fabs(angle - 90.0) > 25.0){
+            cout << "OPS - angle between the axes different than 90° (" << angle << ")" << endl;
+            isGood = false;
+        }
+        // 4th - the ratio between oposed sides of the projected image must be around 1.0
+        double a = Utils::getNorm(scene_corners[1]-scene_corners[0]);
+        double b = Utils::getNorm(scene_corners[2]-scene_corners[1]);
+        double c = Utils::getNorm(scene_corners[3]-scene_corners[2]);
+        double d = Utils::getNorm(scene_corners[0]-scene_corners[3]);
+        double ratioX = std::max(a/c,c/a);
+        double ratioY = std::max(b/d,d/b);
+        if(ratioX > 1.8 || ratioY > 1.8){
+            cout << "OPS - ratio between oposed sides of the projected image not around 1.0 (" << ratioX << "," << ratioY << ")" << endl;
+            isGood = false;
+        }
+        cout << "1st " << ratioDisp << " 2nd " << ratioModDiag << ' ' << ratioDiag << " 3rd " << angle << " 4th " << ratioX << ' ' << ratioY << endl;
     }
 
-    // Compute approximate translation and rotation
-//    p.x = scene_corners[4].x - obj_corners[4].x;
-//    p.y = scene_corners[4].y - obj_corners[4].y;
-//    p.theta = atan2(scene_corners[5].y-scene_corners[4].y,scene_corners[5].x-scene_corners[4].x);
-//    p.theta += M_PI/2.0;
-    p.y = scene_corners[4].x - obj_corners[4].x;
-    p.x = -(scene_corners[4].y - obj_corners[4].y);
-    p.theta = atan2(scene_corners[5].y-scene_corners[4].y,scene_corners[5].x-scene_corners[4].x);
-    return pair<Pose,bool>(p,true);
+    //-- Show detected matches
+    if(!runQuiet)
+        imshow( "Good Matches", img_matches );
+
+    return pair<Pose,bool>(p,isGood);
 }
 
 int selectMapID(int colorDiff)

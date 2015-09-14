@@ -8,7 +8,7 @@ std::string colorDifferenceName(int colorDiffID)
     case INTENSITYC:
         return "INTENSITYC";
     case CMCLAB1984:
-        return "INTENSITYC";
+        return "CMC1984";
     case CIELAB1976:
         return"CIELAB1976";
     case CIELAB1994:

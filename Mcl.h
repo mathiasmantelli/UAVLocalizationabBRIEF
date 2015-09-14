@@ -26,12 +26,13 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial);
+        MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial, string &lName);
         ~MCL();
 
         bool run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         void draw(int x_aux, int y_aux, int halfWindowSize);
+        void restart(Pose &initial, string &lName);
 
         // Required to draw
         vector<MCLparticle> particles;
@@ -59,6 +60,8 @@ class MCL
         Mat binaryFrameMask;
 
         bool removeDuplicates;
+
+        Timer timer;
 
         void sampling(Pose &u, bool reliable);
         void weighting(Mat& z_robot, Pose &u);
