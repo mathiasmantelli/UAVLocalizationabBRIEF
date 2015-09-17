@@ -12,7 +12,7 @@ class MCL;
 
 #include <GL/glut.h>
 #include <opencv2/core/core.hpp>
-using namespace cv;
+//using namespace cv;
 
 #include "densityheuristic.h"
 #include "colorheuristic.h"
@@ -26,17 +26,17 @@ typedef struct{
 class MCL
 {
     public:
-        MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial, string &lName);
+        MCL(vector<Heuristic*>& hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> &gMaps, Pose &initial, string &lName);
         ~MCL();
 
-        bool run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose &real);
+        bool run(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose &real);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         void draw(int x_aux, int y_aux, int halfWindowSize);
         void restart(Pose &initial, string &lName);
 
         // Required to draw
         vector<MCLparticle> particles;
-        vector<Mat>& globalMaps;
+        vector<cv::Mat>& globalMaps;
         GLuint imageTex;
 
     private:
@@ -56,19 +56,19 @@ class MCL
         vector<MapGrid*>& cachedMaps;
         vector<double> heuristicValues;
         vector<double> heuristicGradients;
-        vector<Mat> frameColorConverted;
-        Mat binaryFrameMask;
+        vector<cv::Mat> frameColorConverted;
+        cv::Mat binaryFrameMask;
 
         bool removeDuplicates;
 
         Timer timer;
 
         void sampling(Pose &u, bool reliable);
-        void weighting(Mat& z_robot, Pose &u);
-        void prepareWeighting(Mat &z);
+        void weighting(cv::Mat& z_robot, Pose &u);
+        void prepareWeighting(cv::Mat &z);
         void resampling();
 
-        void weightingSSD(Mat& z_robot);
+        void weightingSSD(cv::Mat& z_robot);
         void weightingDensity(vector<int>& densities, Pose &u, vector<double> &gradients);
         void weightingColor();
 
@@ -78,7 +78,7 @@ class MCL
         double computeAngleError(double trueTh, double particleTh);
         double sumAngles(double a, double b);
 
-        void createColorVersions(Mat& imageRGB);
+        void createColorVersions(cv::Mat& imageRGB);
 
 };
 

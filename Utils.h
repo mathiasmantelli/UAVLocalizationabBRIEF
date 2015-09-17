@@ -9,7 +9,11 @@ using namespace std;
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/opencv.hpp>
-using namespace cv;
+//using namespace cv;
+//using cv::cv::Point2f;
+//using cv::cv::Mat;
+//using cv::Size2f;
+//using cv::Size;
 
 #define DEG2RAD(a) ((a) * M_PI / 180.0)
 #define RAD2DEG(a) ((a) * 180.0 / M_PI)
@@ -75,13 +79,13 @@ class Utils{
 public:
     static vector<string> getListOfFiles(string dirname);
     static string opencvtype2str(int type);
-    static double getNorm(Point2f p);
-    static double getDiffAngle(Point2f p1, Point2f p2);
+    static double getNorm(cv::Point2f p);
+    static double getDiffAngle(cv::Point2f p1, cv::Point2f p2);
     static double getDiffAngle(double ang1, double ang2);
-    static Mat getRotatedROIFromImage(Pose p, Size2f s, Mat &largeMap);
-    static Mat rotateImage(Mat& input, double angle);
-    static double matchImages(Mat& im_1, Mat& im_2, int match_method, InputArray &im2_mask=noArray());
-    static Point templateMatching(Mat& image, Mat& templ, Mat& result, int match_method, InputArray &templ_mask=noArray());
+    static cv::Mat getRotatedROIFromImage(Pose p, cv::Size2f s, cv::Mat &largeMap);
+    static cv::Mat rotateImage(cv::Mat& input, double angle);
+    static double matchImages(cv::Mat& im_1, cv::Mat& im_2, int match_method, cv::InputArray &im2_mask=cv::noArray());
+    static cv::Point templateMatching(cv::Mat& image, cv::Mat& templ, cv::Mat& result, int match_method, cv::InputArray &templ_mask=cv::noArray());
 
 };
 

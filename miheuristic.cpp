@@ -26,7 +26,7 @@ KernelHeuristic(s,id,l,cd,rad,k,kW,kH), numBinsPerChannel(nbins)
         maxEntropyValue = log2(pow(numBinsPerChannel,3));
 }
 
-double EntropyHeuristic::calculateValue(int x, int y, Mat *image, Mat* map)
+double EntropyHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat* map)
 {
     int xini = x-radius;
     int yini = y-radius;
@@ -118,7 +118,7 @@ ID EntropyHeuristic::getIDfromColor(vec3 color)
 }
 
 // Mutual Information Computation
-double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *frame, Mat *frameMap, Pose p)
+double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, cv::Mat *frame, cv::Mat *frameMap, Pose p)
 {
     /// Compute Mutual information
     double mi=0;
@@ -145,9 +145,9 @@ double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *fram
     // Creating a subimage and setting a border with extra pixels from the image to improve interpolation
 
     int size = 2*radius+1+2;
-    cv::Mat subImg = Utils::getRotatedROIFromImage(p,Point2f(size, size), image);
+    cv::Mat subImg = Utils::getRotatedROIFromImage(p,cv::Point2f(size, size), image);
     //imshow("ROI", subImg);
-    //waitKey(0);
+    //cv::waitKey(0);
 
     // Get new boundaries for the patch extracted from the image
     int xiniROI = x-subImg.cols/2-radius;
@@ -219,7 +219,7 @@ double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *fram
 }
 
 // Frame entropy
-void MIHeuristic::setObservedEntropy(int x, int y, Mat* image, Mat*map)
+void MIHeuristic::setObservedEntropy(int x, int y, cv::Mat* image, cv::Mat*map)
 {
     observedEntropy=EntropyHeuristic::calculateValue(x, y, image, map);
 }

@@ -6,12 +6,12 @@ KernelHeuristic(s,id,l,cd,rad,kernel,kW,kH)
     improvedSimilarityMap=false;
 }
 
-double MeanShiftHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+double MeanShiftHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat *map)
 {
     return calculateValue(x,y,map);
 }
 
-double MeanShiftHeuristic::calculateValue(int x, int y, Mat* map)
+double MeanShiftHeuristic::calculateValue(int x, int y, cv::Mat* map)
 {
     // parameters for kernel read
     int xini = x-radius;
@@ -50,7 +50,7 @@ double MeanShiftHeuristic::calculateValue(int x, int y, Mat* map)
     return wmsc;
 }
 
-void MeanShiftHeuristic::updateSimilarityMap(Mat &localImage, Mat &hsvGlobalImage)
+void MeanShiftHeuristic::updateSimilarityMap(cv::Mat &localImage, cv::Mat &hsvGlobalImage)
 {
     // Histogram information
     const int channels[] = { 0, 1 };
@@ -59,40 +59,40 @@ void MeanShiftHeuristic::updateSimilarityMap(Mat &localImage, Mat &hsvGlobalImag
     const float *ranges[] = { range, range };
 
     // Local Image
-    Mat hsvLocal, localHistogram;
+    cv::Mat hsvLocal, localHistogram;
     // 1 -- Convert to HSV
     cvtColor(localImage, hsvLocal, CV_BGR2HSV);
     // 2 -- Compute Histogram
-    Mat localROI = hsvLocal(Rect(Point2f(hsvLocal.cols/2,hsvLocal.rows/2), Size(kWidth, kHeight)));
-    calcHist(&localROI, 1, channels, noArray(), localHistogram, 2, histSize, ranges, true, false);
+    cv::Mat localROI = hsvLocal(cv::Rect(cv::Point2f(hsvLocal.cols/2,hsvLocal.rows/2), cv::Size(kWidth, kHeight)));
+    calcHist(&localROI, 1, channels, cv::noArray(), localHistogram, 2, histSize, ranges, true, false);
 
     // Global Image
     if(improvedSimilarityMap){
-        Mat globalHistogram;
+        cv::Mat globalHistogram;
         // A priori color distribution with cumulative histogram
-        calcHist(&hsvGlobalImage, 1, channels, noArray(), globalHistogram, 2, histSize, ranges, true, true);
+        calcHist(&hsvGlobalImage, 1, channels, cv::noArray(), globalHistogram, 2, histSize, ranges, true, true);
         // Boosting: Divide conditional probabilities in object area by a priori probabilities of colors
         for (int y = 0; y < localHistogram.rows; y++) {
             for (int x = 0; x < localHistogram.cols; x++) {
                 localHistogram.at<float>(y, x) /= globalHistogram.at<float>(y, x);
             }
         }
-        cv::normalize(localHistogram, localHistogram, 0, 255, NORM_MINMAX);
+        cv::normalize(localHistogram, localHistogram, 0, 255, cv::NORM_MINMAX);
     }
 
     // Compute P(O|B)
     calcBackProject(&hsvGlobalImage, 1, channels, localHistogram, similarityMap, ranges);
 
-    Mat window;
+    cv::Mat window;
 //    normalize(similarityMap,window,0,1,NORM_MINMAX);
-    resize(similarityMap,window,Size(0,0),0.2,0.2);
+    resize(similarityMap,window,cv::Size(0,0),0.2,0.2);
     imshow("BP",window);
-    waitKey(0);
+    cv::waitKey(0);
 }
 
 Pose MeanShiftHeuristic::computeMeanShift(int x, int y)
 {
-    Rect trackingWindow(x, y, kWidth, kHeight);
-    meanShift(similarityMap, trackingWindow, TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 100, 0.01));
+    cv::Rect trackingWindow(x, y, kWidth, kHeight);
+    meanShift(similarityMap, trackingWindow, cv::TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 100, 0.01));
     return Pose(trackingWindow.x-x,trackingWindow.y-y,0.0);
 }

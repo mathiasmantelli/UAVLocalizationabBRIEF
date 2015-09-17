@@ -33,7 +33,7 @@
 /// // TRAJ2 -s color diff-cie2000 16    -s density diff-intensity 35.640406 circular 10 -s density diff-cie2000 13.889990 inverted 10
 
 
-MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMaps, Pose &initial, string &lName):
+MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> &gMaps, Pose &initial, string &lName):
     heuristics(hVector),
     heuristicValues(heuristics.size(),0.0),
     heuristicGradients(heuristics.size(),0.0),
@@ -43,7 +43,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     globalMaps(gMaps)
 {
 //    numParticles = 70000;
-    numParticles = 5000;
+    numParticles = 50000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -77,7 +77,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
 //            particles[i].p.y = globalMaps[0].rows/2;
 //            particles[i].p.theta = 0.0;
 
-//            particles[i].p=initial;
+            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -362,7 +362,7 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glutPostRedisplay();
 }
 
-bool MCL::run(Pose &u, bool is_u_reliable, Mat &z, double time, Pose& real)
+bool MCL::run(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose& real)
 {
 //    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    if(delta<1.0)
@@ -619,7 +619,7 @@ void MCL::sampling(Pose &u, bool reliable)
 
 }
 
-void MCL::weighting(Mat& z_robot, Pose &u)
+void MCL::weighting(cv::Mat& z_robot, Pose &u)
 {
     int count = 0;
 
@@ -629,7 +629,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         int y=round(particles[i].p.y);
 
         // check if particle is not valid (unknown or obstacle)
-        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY)
+        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != SIFT_MCL)
             if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
                 particles[i].w = 0.0;
                 count++;
@@ -652,7 +652,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
             {
                 case SSD:
                 {
-                    Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[0]);
+                    cv::Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[0]);
                     prob = Utils::matchImages(z_robot,z_particle,CV_TM_CCORR_NORMED);
                     break;
                 }
@@ -686,6 +686,11 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                 {
                     double val  = h->calculateValue(x,y,&globalMaps[mapID]);
                     prob *= 1.0/(sqrt(2*M_PI*varMeanShift))*exp(-0.5*(pow(val,2)/varMeanShift));
+                    break;
+                }
+                case SIFT_MCL:
+                {
+                    prob *= h->calculateValue(x,y,NULL);
                     break;
                 }
                 case ENTROPY:
@@ -948,7 +953,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
 
 //}
 
-//void MCL::weightingSSD(Mat &z_robot)
+//void MCL::weightingSSD(cv::Mat &z_robot)
 //{
 //    double sumWeights = 0.0;
 
@@ -957,11 +962,11 @@ void MCL::weighting(Mat& z_robot, Pose &u)
 //    int globalMapID = 0;
 
 //    for(int i=0; i<particles.size(); i++){
-//        Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
+//        cv::Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
 //        particles[i].w = Utils::matchImages(z_robot,z_particle,CV_TM_CCORR_NORMED);
 //        sumWeights+= particles[i].w;
-////        Mat window;
-////        resize(z_particle,window,Size(0,0),0.2,0.2);
+////        cv::Mat window;
+////        resize(z_particle,window,cv::Size(0,0),0.2,0.2);
 ////        imshow("particle"+to_string(i), window );
 //    }
 
@@ -1133,7 +1138,7 @@ double MCL::sumAngles(double a, double b)
 
 }
 
-void MCL::prepareWeighting(Mat &z)
+void MCL::prepareWeighting(cv::Mat &z)
 {
     // precomputing halfRows e halfCows
     int halfRows = frameColorConverted[0].rows/2;
@@ -1141,9 +1146,9 @@ void MCL::prepareWeighting(Mat &z)
 
     // Set mask if not set yet
     if(!binaryFrameMask.data)
-        binaryFrameMask = Mat(frameColorConverted[0].cols,
+        binaryFrameMask = cv::Mat(frameColorConverted[0].cols,
                               frameColorConverted[0].rows,
-                              CV_8SC3,Scalar(0,0,0));
+                              CV_8SC3,cv::Scalar(0,0,0));
 
     // Compute value at the center of the frame using
     // appropriate color space
@@ -1213,10 +1218,16 @@ void MCL::prepareWeighting(Mat &z)
 
             break;
             }
+        case SIFT_MCL:
+            {
+            SIFTHeuristic* sifth = (SIFTHeuristic*) heuristics[c];
+            sifth->updateMatcher(z);
+            break;
+            }
         }
     }
 }
-void MCL::createColorVersions(Mat& imageRGB)
+void MCL::createColorVersions(cv::Mat& imageRGB)
 {
     // RGB
     frameColorConverted[0]=imageRGB.clone();

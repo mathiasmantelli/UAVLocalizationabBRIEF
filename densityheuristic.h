@@ -2,7 +2,7 @@
 #define DENSITYHEURISTIC_H
 
 #include "Heuristic.h"
-#include "angleutil.h"
+//#include "angleutil.h"
 
 // Creating a struct for heuristic config
 struct heuristicType{
@@ -34,11 +34,11 @@ class DensityHeuristic : public KernelHeuristic
 {
 public:
     DensityHeuristic(STRATEGY s, int id, double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC);
-    virtual double calculateValue(int x, int y, Mat *image, Mat* map);
+    virtual double calculateValue(int x, int y, cv::Mat *image, cv::Mat* map);
 
-    vec3 calculateMeanColor(Mat &image, Mat &map);
-    double calculateMeanDifference(Mat &image, Mat &map);
-    void setLimiarAsMeanDifference(Mat &image, Mat &map);
+    vec3 calculateMeanColor(cv::Mat &image, cv::Mat &map);
+    double calculateMeanDifference(cv::Mat &image, cv::Mat &map);
+    void setLimiarAsMeanDifference(cv::Mat &image, cv::Mat &map);
 
     double sech5(double val);
 
@@ -55,7 +55,7 @@ class SingleColorDensityHeuristic: public DensityHeuristic
 {
 public:
     SingleColorDensityHeuristic(STRATEGY s, int id, double *kernel,int kWidth, int kHeight,int radius, double l=5.0, unsigned int cd=INTENSITYC, COLOR_NAME colorName=WHITE);
-    double calculateValue(int x, int y, Mat *image, Mat* map);
+    double calculateValue(int x, int y, cv::Mat *image, cv::Mat* map);
 
 private:
     vec3 color;

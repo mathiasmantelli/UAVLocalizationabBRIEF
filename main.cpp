@@ -8,15 +8,18 @@ using std::cerr;
 #include <fstream>
 #include <stdexcept>      // std::invalid_argument
 
+
 #include "SomeKernels.h"
 #include "densityheuristic.h"
 using namespace std;
-using namespace cv;
+////using namespace cv;
 
 #include "Robot.h"
 //#include "PioneerRobot.h"
 #include "DroneRobot.h"
 #include "GlutClass.h"
+
+#include "SiftHeuristic.h"
 
 ConnectionMode connectionMode;
 LogMode logMode;
@@ -36,7 +39,7 @@ void* startRobotThread (void* ref)
         robot->run();
     }
 
-	return NULL;
+    return NULL;
 }
 
 void* startGlutThread (void* ref)
@@ -48,7 +51,7 @@ void* startGlutThread (void* ref)
 
     glut->process();
 
-	return NULL;
+    return NULL;
 }
 
 // Standard Input Error Message
@@ -71,8 +74,8 @@ bool errorMessage(int position=-1, std::string message="")
 bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, std::string& mp, std::string& tp, std::string& op, int& start, int& finish)
 {
     //data to collect
-    Mat image;
-    Mat map;
+    cv::Mat image;
+    cv::Mat map;
     std::string outputName;
     int p=1;
 
@@ -152,6 +155,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=SINGLE_COLOR_DENSITY;
                 else if(s.compare("MEANSHIFT")==0 || s.compare("meanshift")==0)
                     ht->strategy=MEAN_SHIFT;
+                else if(s.compare("SIFT")==0 || s.compare("sift")==0)
+                    ht->strategy=SIFT_MCL;
                 else if(s.compare("CREATE")==0 || s.compare("create")==0)
                     ht->strategy=CREATE_OBSERVATIONS;
                 else if(s.compare("TEMPLATE")==0 || s.compare("template")==0)
@@ -212,6 +217,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             if(ht->strategy == DENSITY ||
                ht->strategy == SINGLE_COLOR_DENSITY ||
                ht->strategy == MEAN_SHIFT ||
+               ht->strategy == SIFT_MCL ||
                ht->strategy == ENTROPY ||
                ht->strategy==MUTUAL_INFORMATION)
             {
@@ -279,9 +285,18 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
     return true;
 }
 
-
 int main(int argc, char* argv[])
 {
+//    vector<valueCV> points;
+//    for ( unsigned i = 0 ; i < 10 ; ++i )
+//    {
+//        points.push_back(valueCV(cv::Point2i(i,i),i));
+//    }
+
+//    Rtree rt(points);
+//    rt.findPointsInsideCircle(cv::Point2i(5,5),2);
+//    exit(0);
+
     // Global variables
     connectionMode = SIMULATION;
     logMode = NONE;

@@ -9,11 +9,11 @@ class ColorHeuristic : public Heuristic
 {
 public:
     ColorHeuristic(STRATEGY s, int id, int cd, double limiar);
-    double calculateValue(int x, int y, Mat *image, Mat *map=NULL);
+    double calculateValue(int x, int y, cv::Mat *image, cv::Mat *map=NULL);
 
     // set methods
-    void setBaselineColor(int x, int y, Mat *image);
-    void setTestedColor(int x, int y, Mat *image); // receives rgb image
+    void setBaselineColor(int x, int y, cv::Mat *image);
+    void setTestedColor(int x, int y, cv::Mat *image); // receives rgb image
 
     // baseline color
     vec3 baselineColor;

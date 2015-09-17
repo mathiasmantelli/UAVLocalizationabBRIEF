@@ -4,13 +4,14 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-using namespace cv;
+//using namespace cv;
 
 #include "Robot.h"
 #include "densityheuristic.h"
 #include "colorheuristic.h"
 #include "miheuristic.h"
 #include "MeanShiftHeuristic.h"
+#include "SiftHeuristic.h"
 
 int selectMapID(int colorDiff);
 
@@ -32,16 +33,16 @@ private:
     Pose readOdometry();
     pair<Pose, bool> readOdometryNew();
     Pose readGroundTruth();
-    pair<Pose, bool> findOdometryUsingECC(Mat &prevImage, Mat &curImage);
-    pair<Pose, bool> findOdometry(Mat &prevImage, Mat &curImage);
-    pair<Pose, bool> findOdometryUsingFeatures(Mat &prevImage, Mat &curImage, double cT=0.04);
-    void drawMatchedImages(Mat& prevImage, Mat& curImage, const Mat& warp_matrix, const int warp_mode = MOTION_EUCLIDEAN);
+    pair<Pose, bool> findOdometryUsingECC(cv::Mat &prevImage, cv::Mat &curImage);
+    pair<Pose, bool> findOdometry(cv::Mat &prevImage, cv::Mat &curImage);
+    pair<Pose, bool> findOdometryUsingFeatures(cv::Mat &prevImage, cv::Mat &curImage, double cT=0.04);
+    void drawMatchedImages(cv::Mat& prevImage, cv::Mat& curImage, const cv::Mat& warp_matrix, const int warp_mode = cv::MOTION_EUCLIDEAN);
 
     void reinitialize();
     void initializeFeatureMatching();
-    void localizeWithTemplateMatching(Mat &currentMap);
-    void localizeWithFeatureMatching(Mat& currentMap);
-    void localizeWithHierarchicalFeatureMatching(Mat& currentMap);
+    void localizeWithTemplateMatching(cv::Mat &currentMap);
+    void localizeWithFeatureMatching(cv::Mat& currentMap);
+    void localizeWithHierarchicalFeatureMatching(cv::Mat& currentMap);
 
     bool slowMethod;
     bool offlineOdom;
@@ -69,20 +70,20 @@ private:
 //    vector<ColorHeuristic*> colorHeuristics;
 //    vector<DensityHeuristic*> densityHeuristic;
 
-    vector<Mat> globalMaps;
+    vector<cv::Mat> globalMaps;
     vector<string> imagesNames;
 
     // Used for feature matching
-    Ptr<Feature2D> feature_detector;
-    Ptr<Feature2D> feature_extractor;
-    FlannBasedMatcher feature_matcher;
-    std::vector<KeyPoint> keypoints_globalMap;
-    Mat descriptors_globalMap;
-    vector< vector<FlannBasedMatcher*> > hMatcher;
+    cv::Ptr<cv::Feature2D> feature_detector;
+    cv::Ptr<cv::Feature2D> feature_extractor;
+    cv::FlannBasedMatcher feature_matcher;
+    std::vector<cv::KeyPoint> keypoints_globalMap;
+    cv::Mat descriptors_globalMap;
+    vector< vector<cv::FlannBasedMatcher*> > hMatcher;
     vector< vector< vector<unsigned int>* > > idKeypoints;
-    Mat likelihood;
+    cv::Mat likelihood;
 
-    Mat prevMap;
+    cv::Mat prevMap;
 
     unsigned int step;
 

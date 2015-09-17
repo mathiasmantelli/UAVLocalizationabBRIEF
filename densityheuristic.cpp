@@ -98,7 +98,7 @@ KernelHeuristic(s,id,l,cd,rad,k,kW,kH)
     mean_diff = -1.0; // set as negative --> undefined
 }
 
-double DensityHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+double DensityHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat *map)
 {
     // parameters for kernel read
     int xini = x-radius;
@@ -175,7 +175,7 @@ double DensityHeuristic::sech5(double val)
     return 1/cosh(val*val*val*val*val);
 }
 
-vec3 DensityHeuristic::calculateMeanColor(Mat &image, Mat& map)
+vec3 DensityHeuristic::calculateMeanColor(cv::Mat &image, cv::Mat& map)
 {
     // reset and recompute mean
     color_mean.set(0.0,0.0,0.0);
@@ -202,7 +202,7 @@ vec3 DensityHeuristic::calculateMeanColor(Mat &image, Mat& map)
     return color_mean;
 }
 
-double DensityHeuristic::calculateMeanDifference(Mat &image, Mat& map)
+double DensityHeuristic::calculateMeanDifference(cv::Mat &image, cv::Mat& map)
 {
     // update color_mean    int getColorDifference();
 
@@ -256,7 +256,7 @@ double DensityHeuristic::calculateMeanDifference(Mat &image, Mat& map)
     return mean_diff;
 }
 
-void DensityHeuristic::setLimiarAsMeanDifference(Mat &image, Mat &map)
+void DensityHeuristic::setLimiarAsMeanDifference(cv::Mat &image, cv::Mat &map)
 {
     if(mean_diff<0.0)
         calculateMeanDifference(image, map);
@@ -304,7 +304,7 @@ DensityHeuristic(s,id,k,kW,kH,rad,l,cd)
 
 }
 
-double SingleColorDensityHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+double SingleColorDensityHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat *map)
 {
     // parameters for kernel read
     int xini = x-radius;

@@ -37,11 +37,11 @@ void Heuristic::setColorDifference(double val)
     color_difference = val;
 }
 
-vec3 Heuristic::getValuefromPixel(int x, int y, Mat *image)
+vec3 Heuristic::getValuefromPixel(int x, int y, cv::Mat *image)
 {
     if(image->type() != CV_32FC3)
     {
-        Vec3b color = image->at<Vec3b>(y,x);
+        cv::Vec3b color = image->at<cv::Vec3b>(y,x);
         double r = color[0];
         double g = color[1];
         double b = color[2];
@@ -51,13 +51,13 @@ vec3 Heuristic::getValuefromPixel(int x, int y, Mat *image)
         return V;
     }
 
-    Vec3f color = image->at<Vec3f>(y,x);
+    cv::Vec3f color = image->at<cv::Vec3f>(y,x);
     vec3 c(color[0], color[1], color[2]);
     return c;
 }
 
 // Apply mask
-double Heuristic::calculateGradientOrientation(int xCenter, int yCenter, Mat *image, Mat *map)
+double Heuristic::calculateGradientOrientation(int xCenter, int yCenter, cv::Mat *image, cv::Mat *map)
 {
     // The direction of the
     double l = calculateValue(xCenter-1, yCenter, image, map);
@@ -77,7 +77,7 @@ double Heuristic::calculateGradientOrientation(int xCenter, int yCenter, Mat *im
     return  atan2(dy, dx); //radians
 }
 
-double Heuristic::calculateGradientSobelOrientation(int xCenter, int yCenter, Mat *image, Mat *map)
+double Heuristic::calculateGradientSobelOrientation(int xCenter, int yCenter, cv::Mat *image, cv::Mat *map)
 {
     // The direction of the
     double l  = calculateValue(xCenter-1, yCenter,   image, map);

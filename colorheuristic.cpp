@@ -6,7 +6,7 @@ Heuristic(s,id,l,cd)
 
 }
 
-double ColorHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+double ColorHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat *map)
 {
     //determine if pixel is in free region
     if(map!=NULL)
@@ -51,13 +51,13 @@ double ColorHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
     return diff/limiar;
 }
 
-void ColorHeuristic::setBaselineColor(int x, int y, Mat *image)
+void ColorHeuristic::setBaselineColor(int x, int y, cv::Mat *image)
 {
     // get color as double values
     baselineColor = getValuefromPixel(x,y,image);
 }
 
-void ColorHeuristic::setTestedColor(int x, int y, Mat *image) // receives rgb image
+void ColorHeuristic::setTestedColor(int x, int y, cv::Mat *image) // receives rgb image
 {
     // get color as double values
     testedColor = getValuefromPixel(x,y,image);

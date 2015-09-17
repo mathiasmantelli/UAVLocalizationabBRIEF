@@ -25,7 +25,8 @@ SOURCES += \
     colorheuristic.cpp \
     Heuristic.cpp \
     miheuristic.cpp \
-    MeanShiftHeuristic.cpp
+    MeanShiftHeuristic.cpp \
+    SiftHeuristic.cpp
 
 OTHER_FILES += \
     CONTROLE.txt
@@ -51,8 +52,9 @@ HEADERS += \
     RadiusVolumeTransferFunctions.h \
     colorheuristic.h \
     miheuristic.h \
-    MeanShiftHeuristic.h
+    MeanShiftHeuristic.h \
+    SiftHeuristic.h
 
 INCLUDEPATH+=/usr/local/Aria/include
 INCLUDEPATH += -I/usr/local/include/opencv2
-LIBS+=-L/usr/local/lib -L/usr/local/Aria/lib -lAria -lpthread -lglut -lGLEW -ldl -lrt `pkg-config opencv --libs` -lGL -lfreeimage
+LIBS+=-L/usr/local/lib -L/usr/local/Aria/lib -lAria -lpthread -lglut -lGLEW -ldl -lrt `pkg-config opencv --libs` -lGL -lfreeimage -lboost_system

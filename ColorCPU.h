@@ -25,17 +25,17 @@ Constants used to Lab conversion taken from
 http://www.brucelindbloom.com/index.html?Eqn_Spect_to_XYZ.html
 
 */
-#define A  	1.09850f,  	1.00000f,  	0.35585f
-#define B 	0.99072f, 	1.00000f, 	0.85223f
-#define C 	0.98074f, 	1.00000f, 	1.18232f
-#define D50 0.96422f, 	1.00000f, 	0.82521f
-#define D55 0.95682f, 	1.00000f, 	0.92149f
+//#define A  	1.09850f,  	1.00000f,  	0.35585f
+//#define B 	0.99072f, 	1.00000f, 	0.85223f
+//#define C 	0.98074f, 	1.00000f, 	1.18232f
+//#define D50 0.96422f, 	1.00000f, 	0.82521f
+//#define D55 0.95682f, 	1.00000f, 	0.92149f
 #define D65 0.95047f, 	1.00000f, 	1.08883f
-#define D75 0.94972f, 	1.00000f, 	1.22638f
-#define E 	1.00000f, 	1.00000f, 	1.00000f
-#define F2 	0.99186f, 	1.00000f, 	0.67393f
-#define F7 	0.95041f, 	1.00000f, 	1.08747f
-#define F11 1.00962f, 	1.00000f, 	0.64350f
+//#define D75 0.94972f, 	1.00000f, 	1.22638f
+//#define E 	1.00000f, 	1.00000f, 	1.00000f
+//#define F2 	0.99186f, 	1.00000f, 	0.67393f
+//#define F7 	0.95041f, 	1.00000f, 	1.08747f
+//#define F11 1.00962f, 	1.00000f, 	0.64350f
 
 #define gammasRGB 2.2f
 

@@ -348,8 +348,8 @@ void GlutClass::specialKeys(int key, int x, int y)
     }
 }
 
-// Function turn a cv::Mat into a texture, and return the texture ID as a GLuint for use
-GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter)
+// Function turn a cv::cv::Mat into a texture, and return the texture ID as a GLuint for use
+GLuint matToTexture(cv::Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter)
 {
     glEnable(GL_TEXTURE_2D);
 
@@ -388,7 +388,7 @@ GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFil
         inputColourFormat = GL_LUMINANCE;
     }
 
-    Mat reduced;
+    cv::Mat reduced;
     if(mat.cols > 8000 || mat.rows > 8000){
         int w = mat.cols;
         int h = mat.rows;
@@ -400,13 +400,13 @@ GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFil
             w = 8000;
         }
 
-        resize(mat,reduced,Size(w,h),0,0);
+        resize(mat,reduced,cv::Size(w,h),0,0);
     }else{
         reduced = mat;
     }
 
 
-    Mat flipped;
+    cv::Mat flipped;
     flip(reduced,flipped,1);
 //    flipped = mat.clone();
 

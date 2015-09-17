@@ -9,7 +9,7 @@ class GlutClass;
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <opencv2/core/core.hpp>
-using namespace cv;
+//using namespace cv;
 
 class GlutClass
 {
@@ -53,6 +53,6 @@ class GlutClass
         static void specialKeys(int key, int x, int y);
 };
 
-GLuint matToTexture(Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter);
+GLuint matToTexture(cv::Mat &mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter);
 
 #endif /* __GLUT_H__ */

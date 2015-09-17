@@ -31,10 +31,10 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     outputName=oName;
 
     // Read fullMap
-    Mat originalMap = imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
+    cv::Mat originalMap = cv::imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
     if(! originalMap.data )                              // Check for invalid input
     {
-        originalMap = imread(mapPath+"/globalmap.png",CV_LOAD_IMAGE_COLOR);
+        originalMap = cv::imread(mapPath+"/globalmap.png",CV_LOAD_IMAGE_COLOR);
         if(! originalMap.data )                              // Check for invalid input
         {
             cout <<  "Could not open or find local map" << std::endl ;
@@ -43,18 +43,18 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     }
     globalMaps.push_back(originalMap);
 
-    Mat grayMap;
+    cv::Mat grayMap;
     cvtColor(originalMap,grayMap,CV_BGR2GRAY);
     cvtColor(grayMap,grayMap,CV_GRAY2BGR);
     globalMaps.push_back(grayMap);
 
-    Mat labMap;
+    cv::Mat labMap;
     originalMap.convertTo(labMap, CV_32F);
     labMap*=1/255.0;
     cvtColor(labMap, labMap, CV_BGR2Lab);
     globalMaps.push_back(labMap);
 
-    Mat hsvMap;
+    cv::Mat hsvMap;
     cvtColor(originalMap, hsvMap, CV_BGR2HSV);
     globalMaps.push_back(hsvMap);
 
@@ -65,7 +65,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     }
 
     // extract binary map
-    Mat map= imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
+    cv::Mat map= cv::imread(mapPath+"/globalmap_Mapa.png",CV_LOAD_IMAGE_COLOR);
 
     // check if image is valid
     if(!map.data)
@@ -166,7 +166,8 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             // Create color heuristic
             heur = new ColorHeuristic(COLOR_ONLY, id, hT->colorDifference, hT->threshold);
         }
-        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY || hT->strategy == MEAN_SHIFT || hT->strategy == MUTUAL_INFORMATION )
+        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY ||
+                hT->strategy == MEAN_SHIFT || hT->strategy == SIFT_MCL || hT->strategy == MUTUAL_INFORMATION )
         {
             double r = hT->radius;
             double* kMask;
@@ -200,6 +201,8 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
 
             if(hT->strategy == MEAN_SHIFT){
                 heur = new MeanShiftHeuristic(MEAN_SHIFT, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference);
+            }else if(hT->strategy == SIFT_MCL){
+                    heur = new SIFTHeuristic(SIFT_MCL, id, grayMap, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference);
             }else{
                 // Create kernel heuristic
                 if(hT->strategy == DENSITY)
@@ -356,9 +359,9 @@ int DroneRobot::getNextProperHeuristicID(STRATEGY type)
 void DroneRobot::generateObservations(string imagePath)
 {
     // Show global map (resized to 20% of normal size).
-    Mat window;
+    cv::Mat window;
     double scale = 1.0/5.0;
-    resize(globalMaps[0],window,Size(0,0),scale,scale);
+    resize(globalMaps[0],window,cv::Size(0,0),scale,scale);
     imshow( "Global Map", window );
 
     stringstream ss;
@@ -369,10 +372,10 @@ void DroneRobot::generateObservations(string imagePath)
     while(readRawOdometryFromFile(p)){
         cout << "x:" << p.x << " y:" << p.y << " th:" << RAD2DEG(p.theta) << endl;
 
-        circle(window,Point2f(p.x*scale,p.y*scale),10,Scalar(0,0,255));
+        circle(window,cv::Point2f(p.x*scale,p.y*scale),10,cv::Scalar(0,0,255));
         imshow( "Trajectory", window );
 
-        Mat z = Utils::getRotatedROIFromImage(p,Size2f(320,240),globalMaps[0]);
+        cv::Mat z = Utils::getRotatedROIFromImage(p,cv::Size2f(320,240),globalMaps[0]);
         imshow( "Observation", z );
 
         // Save image
@@ -381,7 +384,7 @@ void DroneRobot::generateObservations(string imagePath)
         cout << "Image: " << ss.str() << endl;
         imwrite(ss.str(), z );
 
-        waitKey(100);
+        cv::waitKey(100);
         id++;
     }
 
@@ -390,21 +393,21 @@ void DroneRobot::generateObservations(string imagePath)
 void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 {
     // Create windows for the global map and the local map
-//    namedWindow( "Global Map", WINDOW_KEEPRATIO );
-    namedWindow( "Local Map", WINDOW_KEEPRATIO );
+//    cv::namedWindow( "Global Map", cv::WINDOW_KEEPRATIO );
+    cv::namedWindow( "Local Map", cv::WINDOW_KEEPRATIO );
 
-//    namedWindow("Red",1);
-//    namedWindow("Green",1);
-//    namedWindow("Blue",1);
+//    cv::namedWindow("Red",1);
+//    cv::namedWindow("Green",1);
+//    cv::namedWindow("Blue",1);
 
     // Create Matrices (make sure there is an image in input!)
 
 //     Show global map (resized to 20% of normal size).
-//    Mat window;
-//    resize(globalMaps[0],window,Size(0,0),0.2,0.2);
+//    cv::Mat window;
+//    resize(globalMaps[0],window,cv::Size(0,0),0.2,0.2);
 //    imshow( "Global Map", window );
 
-//    waitKey(1000);                                    // Wait for a keystroke in the window
+//    cv::waitKey(1000);                                    // Wait for a keystroke in the window
 
 //    if(ssdHeuristics.size()>0)
 //        locTechnique = SSD;
@@ -429,14 +432,14 @@ void DroneRobot::initialize(ConnectionMode cmode, LogMode lmode, string fname)
 
 void DroneRobot::initializeFeatureMatching()
 {
-    Mat globalMap = globalMaps[1]; // Grayscale
+    cv::Mat globalMap = globalMaps[1]; // Grayscale
 
     int H = globalMap.rows;
     int W = globalMap.cols;
     cout << "H:" << H << " W:" << W << endl;
 
-    feature_detector=xfeatures2d::SIFT::create(100000,10);
-//    feature_detector=xfeatures2d::SURF::create();
+    feature_detector=cv::xfeatures2d::SIFT::create(100000,10);
+//    feature_detector=cv::xfeatures2d::SURF::create();
     feature_extractor=feature_detector;
     feature_detector->detect(globalMap,keypoints_globalMap);
     feature_extractor->compute(globalMap,keypoints_globalMap,descriptors_globalMap);
@@ -448,7 +451,7 @@ void DroneRobot::initializeFeatureMatching()
             " Descriptors " << descriptors_globalMap.cols << ' ' << descriptors_globalMap.rows << ' '
                             << Utils::opencvtype2str(descriptorsType) << endl;
 
-    Mat localMap = imread(imagesNames[0],CV_LOAD_IMAGE_COLOR);
+    cv::Mat localMap = cv::imread(imagesNames[0],CV_LOAD_IMAGE_COLOR);
     if(! localMap.data )                              // Check for invalid input
     {
         cout <<  "Could not open or find local map" << std::endl ;
@@ -465,7 +468,7 @@ void DroneRobot::initializeFeatureMatching()
     int numCols = W/halfSize;
     cout << "numRows:" << numRows << " numCols:" << numCols << endl;
 
-    likelihood = Mat(numRows,numCols,descriptorsType,1.0);
+    likelihood = cv::Mat(numRows,numCols,descriptorsType,1.0);
 
     // Allocate matrices
     hMatcher.resize(numCols);
@@ -474,7 +477,7 @@ void DroneRobot::initializeFeatureMatching()
         hMatcher[x].resize(numRows);
         idKeypoints[x].resize(numRows);
         for(int y=0; y<hMatcher[x].size(); ++y){
-            hMatcher[x][y] = new FlannBasedMatcher();
+            hMatcher[x][y] = new cv::FlannBasedMatcher();
             idKeypoints[x][y] = new vector<unsigned int>();
         }
     }
@@ -484,7 +487,7 @@ void DroneRobot::initializeFeatureMatching()
     // Fill matrices
     for(int x=0; x<hMatcher.size(); ++x){
         for(int y=0; y<hMatcher[x].size(); ++y){
-            FlannBasedMatcher* matcher = hMatcher[x][y];
+            cv::FlannBasedMatcher* matcher = hMatcher[x][y];
             vector<unsigned int>* kPoints = idKeypoints[x][y];
 
             if(x==0 && y==0)
@@ -492,7 +495,7 @@ void DroneRobot::initializeFeatureMatching()
 
             // Find features inside the (x,y) block
             for(int k=0; k<keypoints_globalMap.size(); ++k){
-                KeyPoint& kp = keypoints_globalMap[k];
+                cv::KeyPoint& kp = keypoints_globalMap[k];
                 if(kp.pt.x >= x*halfSize &&
                    kp.pt.x < x*halfSize + size &&
                    kp.pt.y >= y*halfSize &&
@@ -506,7 +509,7 @@ void DroneRobot::initializeFeatureMatching()
             sum += kPoints->size();
 
             // Copy descriptors associated to kPoints
-            Mat descriptors(kPoints->size(),128,descriptorsType);
+            cv::Mat descriptors(kPoints->size(),128,descriptorsType);
             for(int k=0; k<kPoints->size(); ++k){
                 descriptors_globalMap.row(kPoints->at(k)).copyTo(descriptors.row(k));
             }
@@ -521,11 +524,11 @@ void DroneRobot::initializeFeatureMatching()
 
 }
 
-void computeEntropyMap(Mat& image_orig, Mat& mask)
+void computeEntropyMap(cv::Mat& image_orig, cv::Mat& mask)
 {
-    Mat image;
+    cv::Mat image;
     image = image_orig;
-//    resize(image_orig,image,Size(0,0),0.5,0.5);
+//    resize(image_orig,image,cv::Size(0,0),0.5,0.5);
 
     image.convertTo(image,CV_32F);
     image *= 1.0/255.0;
@@ -534,9 +537,9 @@ void computeEntropyMap(Mat& image_orig, Mat& mask)
 //    cvtColor(image, image, CV_BGR2GRAY);
 //    cvtColor(image, image, CV_GRAY2BGR);
     imshow("input",image);
-//    waitKey(0);
+//    cv::waitKey(0);
 
-    Mat entropyMap(image.rows, image.cols, CV_64F, Scalar(0.0));
+    cv::Mat entropyMap(image.rows, image.cols, CV_64F, cv::Scalar(0.0));
 
     double r = 10;
     double l = 2.3;
@@ -559,7 +562,7 @@ void computeEntropyMap(Mat& image_orig, Mat& mask)
 
     imshow("entropy",entropyMap);
 
-    waitKey(0);
+    cv::waitKey(0);
 }
 
 void DroneRobot::run()
@@ -580,19 +583,19 @@ void DroneRobot::run()
     }
 
     // Read image
-    Mat currentMap = imread(imagesNames[step],CV_LOAD_IMAGE_COLOR);
+    cv::Mat currentMap = cv::imread(imagesNames[step],CV_LOAD_IMAGE_COLOR);
     if(! currentMap.data )                              // Check for invalid input
     {
         cout <<  "Could not open or find local map" << std::endl ;
         return;
     }
 
-//    Mat window;
-//    resize(currentMap,window,Size(0,0),0.2,0.2);
+//    cv::Mat window;
+//    resize(currentMap,window,cv::Size(0,0),0.2,0.2);
 
     if(!runQuiet){
         imshow( "Local Map", currentMap );
-        waitKey(100);
+        cv::waitKey(100);
     }
 
     cout << "Image" << step << ' ';
@@ -628,7 +631,7 @@ void DroneRobot::run()
                 odometry_ = od.first;
                 odom_reliable = od.second;
             }
-//            waitKey(0);
+//            cv::waitKey(0);
         }else{
 //            odometry_ = findOdometry(prevMap,currentMap);
 //            pair<Pose,bool> od = findOdometryUsingFeatures(prevMap,currentMap);
@@ -675,65 +678,65 @@ void DroneRobot::run()
     }
 }
 
-void DroneRobot::localizeWithTemplateMatching(Mat& currentMap)
+void DroneRobot::localizeWithTemplateMatching(cv::Mat& currentMap)
 {
     cout << "Templatão" << endl;
-    Mat whiteMask(currentMap.rows, currentMap.cols, CV_8UC3, Scalar(255,255,255));
+    cv::Mat whiteMask(currentMap.rows, currentMap.cols, CV_8UC3, cv::Scalar(255,255,255));
 
     for(int angle=360; angle>=0; angle-=10){
 
-        Mat templ = Utils::rotateImage(currentMap,angle);
-        Mat mask = Utils::rotateImage(whiteMask,angle);
+        cv::Mat templ = Utils::rotateImage(currentMap,angle);
+        cv::Mat mask = Utils::rotateImage(whiteMask,angle);
         imshow( "Local Map", templ );
         imshow( "Mask", mask );
 
         /// Source image to display
-        Mat img_display, result;
+        cv::Mat img_display, result;
         globalMaps[0].copyTo( img_display );
 
-        Point matchLoc = Utils::templateMatching(globalMaps[0],templ,result,CV_TM_CCORR_NORMED,mask);
+        cv::Point matchLoc = Utils::templateMatching(globalMaps[0],templ,result,CV_TM_CCORR_NORMED,mask);
 
         /// Show me what you got
-        rectangle( img_display, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
-        rectangle( result, matchLoc, Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), Scalar::all(0), 2, 8, 0 );
+        rectangle( img_display, matchLoc, cv::Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), cv::Scalar::all(0), 2, 8, 0 );
+        rectangle( result, matchLoc, cv::Point( matchLoc.x + currentMap.cols , matchLoc.y + currentMap.rows ), cv::Scalar::all(0), 2, 8, 0 );
 
-        resize(img_display,img_display,Size(0,0),0.2,0.2);
+        resize(img_display,img_display,cv::Size(0,0),0.2,0.2);
         imshow( "image_window", img_display );
-        resize(result,result,Size(0,0),0.2,0.2);
+        resize(result,result,cv::Size(0,0),0.2,0.2);
         imshow( "result", result);
-        waitKey(0);
+        cv::waitKey(0);
     }
 }
 
-void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
+void DroneRobot::localizeWithHierarchicalFeatureMatching(cv::Mat& currentMap)
 {
-    Mat current;
+    cv::Mat current;
 
     // Convert image to gray scale;
     cvtColor(currentMap, current, CV_BGR2GRAY);
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    std::vector<KeyPoint> keypoints_currentMap;
-    Mat descriptors_currentMap;
+    std::vector<cv::KeyPoint> keypoints_currentMap;
+    cv::Mat descriptors_currentMap;
 
     feature_detector->detect(current,keypoints_currentMap);
     feature_extractor->compute(current,keypoints_currentMap,descriptors_currentMap);
 
-    Mat H;
+    cv::Mat H;
     double sum=0;
     double maxMatches=-1;
     pair<int,int> best;
-    std::vector< DMatch > best_matches;
-    Mat curlikelihood = Mat(likelihood.rows,likelihood.cols,likelihood.type());
+    std::vector< cv::DMatch > best_matches;
+    cv::Mat curlikelihood = cv::Mat(likelihood.rows,likelihood.cols,likelihood.type());
 
     for(int x=0; x<hMatcher.size(); ++x){
         for(int y=0; y<hMatcher[x].size(); ++y){
             //-- Step 3: Matching descriptor vectors using FLANN matcher
-            FlannBasedMatcher* matcher = hMatcher[x][y];
+            cv::FlannBasedMatcher* matcher = hMatcher[x][y];
             vector<unsigned int>* kPoints = idKeypoints[x][y];
 
-            std::vector< DMatch > matches;
+            std::vector< cv::DMatch > matches;
             matcher->match( descriptors_currentMap, matches );
 
             double max_dist = 0; double min_dist = 100;
@@ -754,7 +757,7 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
             //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
             //-- small)
             //-- PS.- radiusMatch can also be used here.
-            std::vector< DMatch > good_matches;
+            std::vector< cv::DMatch > good_matches;
             for( int i = 0; i < matches.size(); i++ )
             {
                 if( matches[i].distance <= max(2*min_dist, 0.02) ){
@@ -770,7 +773,7 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
                 best_matches = good_matches;
 //                if(maxMatches > 10){
 //                    // Find transformation
-//                    std::vector<Point2f> points1, points2;
+//                    std::vector<cv::Point2f> points1, points2;
 //                    for( int i = 0; i < good_matches.size(); i++ )
 //                    {
 //                        //-- Get the keypoints from the good matches
@@ -791,7 +794,7 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
 //    curlikelihood /= maxMatches;
 
     normalize(curlikelihood,curlikelihood);
-    Mat noisinho = Mat(likelihood.rows,likelihood.cols,likelihood.type(),0.1/float(likelihood.rows*likelihood.cols));
+    cv::Mat noisinho = cv::Mat(likelihood.rows,likelihood.cols,likelihood.type(),0.1/float(likelihood.rows*likelihood.cols));
 
     likelihood = likelihood.mul(curlikelihood);
     likelihood += noisinho;
@@ -819,78 +822,78 @@ void DroneRobot::localizeWithHierarchicalFeatureMatching(Mat& currentMap)
 //    cout << "min " << minX << "," << minY << " delta " << maxX-minX << "," << maxY-minY << endl;
 
     // Draw bounding box of the best association
-    Mat gMap = globalMaps[0].clone();
-    line( gMap, Point2f(minX,minY), Point2f(minX,maxY), Scalar(0, 0, 255), 10 );
-    line( gMap, Point2f(minX,maxY), Point2f(maxX,maxY), Scalar(0, 0, 255), 10 );
-    line( gMap, Point2f(maxX,maxY), Point2f(maxX,minY), Scalar(0, 0, 255), 10 );
-    line( gMap, Point2f(maxX,minY), Point2f(minX,minY), Scalar(0, 0, 255), 10 );
+    cv::Mat gMap = globalMaps[0].clone();
+    line( gMap, cv::Point2f(minX,minY), cv::Point2f(minX,maxY), cv::Scalar(0, 0, 255), 10 );
+    line( gMap, cv::Point2f(minX,maxY), cv::Point2f(maxX,maxY), cv::Scalar(0, 0, 255), 10 );
+    line( gMap, cv::Point2f(maxX,maxY), cv::Point2f(maxX,minY), cv::Scalar(0, 0, 255), 10 );
+    line( gMap, cv::Point2f(maxX,minY), cv::Point2f(minX,minY), cv::Scalar(0, 0, 255), 10 );
 
     // Draw tranformed image
     if(!H.empty()){
         //-- Get the corners from currentMap
-        std::vector<Point2f> obj_corners(7);
+        std::vector<cv::Point2f> obj_corners(7);
         obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( currentMap.cols, 0 );
         obj_corners[2] = cvPoint( currentMap.cols, currentMap.rows ); obj_corners[3] = cvPoint( 0, currentMap.rows );
 
         obj_corners[4] = cvPoint( currentMap.cols/2, currentMap.rows/2 ); // center
         obj_corners[5] = cvPoint( currentMap.cols, currentMap.rows/2 ); obj_corners[6] = cvPoint( currentMap.cols/2, 0 );
 
-        std::vector<Point2f> scene_corners(7);
+        std::vector<cv::Point2f> scene_corners(7);
 
         //-- Transform the corners using the homography
         perspectiveTransform( obj_corners, scene_corners, H);
 
-        Mat img_matches = globalMaps[0].clone();
+        cv::Mat img_matches = globalMaps[0].clone();
         //-- Draw lines between the corners
-        line( gMap, scene_corners[0] + Point2f( currentMap.cols, 0), scene_corners[1] + Point2f( currentMap.cols, 0), Scalar(0, 255, 0), 4 );
-        line( gMap, scene_corners[1] + Point2f( currentMap.cols, 0), scene_corners[2] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( gMap, scene_corners[2] + Point2f( currentMap.cols, 0), scene_corners[3] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( gMap, scene_corners[3] + Point2f( currentMap.cols, 0), scene_corners[0] + Point2f( currentMap.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( gMap, scene_corners[0] + cv::Point2f( currentMap.cols, 0), scene_corners[1] + cv::Point2f( currentMap.cols, 0), cv::Scalar(0, 255, 0), 4 );
+        line( gMap, scene_corners[1] + cv::Point2f( currentMap.cols, 0), scene_corners[2] + cv::Point2f( currentMap.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+        line( gMap, scene_corners[2] + cv::Point2f( currentMap.cols, 0), scene_corners[3] + cv::Point2f( currentMap.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+        line( gMap, scene_corners[3] + cv::Point2f( currentMap.cols, 0), scene_corners[0] + cv::Point2f( currentMap.cols, 0), cv::Scalar( 0, 255, 0), 4 );
 
-        line( gMap, scene_corners[4] + Point2f( currentMap.cols, 0), scene_corners[5] + Point2f( currentMap.cols, 0), Scalar( 0, 0, 255), 4 );
-        line( gMap, scene_corners[4] + Point2f( currentMap.cols, 0), scene_corners[6] + Point2f( currentMap.cols, 0), Scalar( 255, 0, 0), 4 );
-//        resize(gMap,img_matches,Size(0,0),0.2,0.2);
+        line( gMap, scene_corners[4] + cv::Point2f( currentMap.cols, 0), scene_corners[5] + cv::Point2f( currentMap.cols, 0), cv::Scalar( 0, 0, 255), 4 );
+        line( gMap, scene_corners[4] + cv::Point2f( currentMap.cols, 0), scene_corners[6] + cv::Point2f( currentMap.cols, 0), cv::Scalar( 255, 0, 0), 4 );
+//        resize(gMap,img_matches,cv::Size(0,0),0.2,0.2);
 //        imshow("Matches", gMap);
     }
 
     //-- Draw only "good" matches
-    vector<KeyPoint> keypoints_1;
+    vector<cv::KeyPoint> keypoints_1;
     for(int k=0; k<kPoints->size(); ++k)
         keypoints_1.push_back(keypoints_globalMap[kPoints->at(k)]);
-    Mat img_matches;
+    cv::Mat img_matches;
     drawMatches( currentMap, keypoints_currentMap, gMap, keypoints_1,
-               best_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-               vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    resize(img_matches,img_matches,Size(0,0),0.2,0.2);
+               best_matches, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
+               vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    resize(img_matches,img_matches,cv::Size(0,0),0.2,0.2);
     imshow("Matches", img_matches);
 
 //    likelihood *= 0;
 //    likelihood.at<float>(3,2) = 1.0;
 
-    Mat window;
-    resize(likelihood,window,Size(0,0),50,50,INTER_NEAREST);
+    cv::Mat window;
+    resize(likelihood,window,cv::Size(0,0),50,50,cv::INTER_NEAREST);
     imshow("likelihood",window);
-    waitKey(10);
+    cv::waitKey(10);
 }
 
-void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
+void DroneRobot::localizeWithFeatureMatching(cv::Mat& currentMap)
 {
-    Mat current;
+    cv::Mat current;
 
     // Convert image to gray scale;
     cvtColor(currentMap, current, CV_BGR2GRAY);
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    std::vector<KeyPoint> keypoints_currentMap;
-    Mat descriptors_currentMap;
+    std::vector<cv::KeyPoint> keypoints_currentMap;
+    cv::Mat descriptors_currentMap;
 
     feature_detector->detect(current,keypoints_currentMap);
     feature_extractor->compute(current,keypoints_currentMap,descriptors_currentMap);
 
     //-- Step 3: Matching descriptor vectors using FLANN matcher
-//    FlannBasedMatcher matcher;
-    std::vector< DMatch > matches;
+//    cv::FlannBasedMatcher matcher;
+    std::vector< cv::DMatch > matches;
 //    matcher.match( descriptors_currentMap, descriptors_globalMap, matches );
     feature_matcher.match( descriptors_currentMap, matches );
 
@@ -913,7 +916,7 @@ void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
     //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
     //-- small)
     //-- PS.- radiusMatch can also be used here.
-    std::vector< DMatch > good_matches;
+    std::vector< cv::DMatch > good_matches;
 
     for( int i = 0; i < matches.size(); i++ )
     {
@@ -923,10 +926,10 @@ void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
     }
 
     //-- Draw only "good" matches
-    Mat img_matches;
+    cv::Mat img_matches;
     drawMatches( currentMap, keypoints_currentMap, globalMaps[0], keypoints_globalMap,
-               good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-               vector<char>(), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+               good_matches, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
+               vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 
     for( int i = 0; i < (int)good_matches.size(); i++ )
         printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx );
@@ -934,7 +937,7 @@ void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
     int minNumPoints = 4;
 
     // Find transformation
-    std::vector<Point2f> points1, points2;
+    std::vector<cv::Point2f> points1, points2;
     for( int i = 0; i < good_matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
@@ -942,33 +945,33 @@ void DroneRobot::localizeWithFeatureMatching(Mat& currentMap)
         points2.push_back( keypoints_currentMap[ good_matches[i].queryIdx ].pt );
     }
 
-    Mat H;
+    cv::Mat H;
     if(good_matches.size()>=minNumPoints)
         H = findHomography( points1, points2, CV_RANSAC );
 
 //    //-- Get the corners from the image_1 ( the object to be "detected" )
-//    std::vector<Point2f> obj_corners(4);
+//    std::vector<cv::Point2f> obj_corners(4);
 //    obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( img_1.cols, 0 );
 //    obj_corners[2] = cvPoint( img_1.cols, img_1.rows ); obj_corners[3] = cvPoint( 0, img_1.rows );
-//    std::vector<Point2f> scene_corners(4);
+//    std::vector<cv::Point2f> scene_corners(4);
 
 //    perspectiveTransform( obj_corners, scene_corners, H);
 
 //    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-//    line( img_matches, scene_corners[0] + Point2f( img_1.cols, 0), scene_corners[1] + Point2f( img_1.cols, 0), Scalar(0, 255, 0), 4 );
-//    line( img_matches, scene_corners[1] + Point2f( img_1.cols, 0), scene_corners[2] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
-//    line( img_matches, scene_corners[2] + Point2f( img_1.cols, 0), scene_corners[3] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
-//    line( img_matches, scene_corners[3] + Point2f( img_1.cols, 0), scene_corners[0] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[0] + cv::Point2f( img_1.cols, 0), scene_corners[1] + cv::Point2f( img_1.cols, 0), cv::Scalar(0, 255, 0), 4 );
+//    line( img_matches, scene_corners[1] + cv::Point2f( img_1.cols, 0), scene_corners[2] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[2] + cv::Point2f( img_1.cols, 0), scene_corners[3] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+//    line( img_matches, scene_corners[3] + cv::Point2f( img_1.cols, 0), scene_corners[0] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
 
     //-- Show detected matches
-    Mat resized;
-    resize(img_matches,resized,Size(0,0),0.4,0.4);
+    cv::Mat resized;
+    resize(img_matches,resized,cv::Size(0,0),0.4,0.4);
     imshow( "Good Matches", resized );
 //    if(good_matches.size()>=minNumPoints)
 //    if(!H.empty())
-//        drawMatchedImages(globalMaps[0],currentMap,H,MOTION_HOMOGRAPHY);
+//        drawMatchedImages(globalMaps[0],currentMap,H,cv::MOTION_HOMOGRAPHY);
 //    else
-        waitKey(0);
+        cv::waitKey(0);
 
 }
 
@@ -1043,26 +1046,26 @@ Pose DroneRobot::readGroundTruth()
    return p;
 }
 
-void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, const Mat& wm, const int warp_mode)
+void DroneRobot::drawMatchedImages(cv::Mat& prevImage, cv::Mat& curImage, const cv::Mat& wm, const int warp_mode)
 {
-    vector<Point2f> yourPoints;
-    yourPoints.push_back(Point2f(0,0));
-    yourPoints.push_back(Point2f(curImage.cols,0));
-    yourPoints.push_back(Point2f(curImage.cols,curImage.rows));
-    yourPoints.push_back(Point2f(0,curImage.rows));
-    yourPoints.push_back(Point2f(curImage.cols/2,curImage.rows/2));
-    yourPoints.push_back(Point2f(curImage.cols,curImage.rows/2));
-    yourPoints.push_back(Point2f(curImage.cols/2,0));
+    vector<cv::Point2f> yourPoints;
+    yourPoints.push_back(cv::Point2f(0,0));
+    yourPoints.push_back(cv::Point2f(curImage.cols,0));
+    yourPoints.push_back(cv::Point2f(curImage.cols,curImage.rows));
+    yourPoints.push_back(cv::Point2f(0,curImage.rows));
+    yourPoints.push_back(cv::Point2f(curImage.cols/2,curImage.rows/2));
+    yourPoints.push_back(cv::Point2f(curImage.cols,curImage.rows/2));
+    yourPoints.push_back(cv::Point2f(curImage.cols/2,0));
 
-    Mat warp_matrix = wm.clone();
+    cv::Mat warp_matrix = wm.clone();
 
-    vector<Point2f> transformedPoints;
+    vector<cv::Point2f> transformedPoints;
     transformedPoints.resize(yourPoints.size());
 
-    Mat transf;
-//    if (warp_mode != MOTION_HOMOGRAPHY){
-        transf = Mat::eye(3, 3, CV_32F);
-        Mat aux = transf.colRange(0,3).rowRange(0,2);
+    cv::Mat transf;
+//    if (warp_mode != cv::MOTION_HOMOGRAPHY){
+        transf = cv::Mat::eye(3, 3, CV_32F);
+        cv::Mat aux = transf.colRange(0,3).rowRange(0,2);
         warp_matrix.copyTo(aux);
 //    }else{
 //        transf = warp_matrix;
@@ -1070,79 +1073,79 @@ void DroneRobot::drawMatchedImages(Mat& prevImage, Mat& curImage, const Mat& wm,
 
     perspectiveTransform(yourPoints, transformedPoints, transf.inv());
 
-    vector<Point2f> totalPoints;
+    vector<cv::Point2f> totalPoints;
     totalPoints.reserve( yourPoints.size() + transformedPoints.size() ); // preallocate memory
     totalPoints.insert( totalPoints.end(), yourPoints.begin(), yourPoints.end() );
     totalPoints.insert( totalPoints.end(), transformedPoints.begin(), transformedPoints.end() );
 
-    Rect r = boundingRect(totalPoints);
+    cv::Rect r = boundingRect(totalPoints);
 
 //    cout << "warp:" << warp_matrix << endl;
 //    cout << "transf:" << transf << endl;
 //    cout << "r:" << r.x << ' ' << r.y << endl;
 
-    Mat displ = Mat::eye(3, 3, CV_32F);
+    cv::Mat displ = cv::Mat::eye(3, 3, CV_32F);
     displ.at<float>(0,2) = -r.x;
     displ.at<float>(1,2) = -r.y;
     perspectiveTransform(yourPoints, yourPoints, displ);
     perspectiveTransform(transformedPoints, transformedPoints, displ);
 
-    Mat blank(r.height, r.width, CV_8UC3, Scalar(0));
-//    waitKey(0);
+    cv::Mat blank(r.height, r.width, CV_8UC3, cv::Scalar(0));
+//    cv::waitKey(0);
 
 
     // Storage for warped image.
-    Mat im2_aligned;
+    cv::Mat im2_aligned;
     warp_matrix.at<float>(0,2) += r.x;
     warp_matrix.at<float>(1,2) += r.y;
 //    cout << "warp2:" << warp_matrix << endl;
 
-    if (warp_mode != MOTION_HOMOGRAPHY)
+    if (warp_mode != cv::MOTION_HOMOGRAPHY)
         // Use warpAffine for Translation, Euclidean and Affine
-        warpAffine(curImage, im2_aligned, warp_matrix, blank.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+        warpAffine(curImage, im2_aligned, warp_matrix, blank.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP);
     else
         // Use warpPerspective for Homography
-        warpPerspective (curImage, im2_aligned, warp_matrix, blank.size(),INTER_LINEAR + WARP_INVERSE_MAP);
+        warpPerspective (curImage, im2_aligned, warp_matrix, blank.size(),cv::INTER_LINEAR + cv::WARP_INVERSE_MAP);
 
     // Draw aligned curImage in blank
     blank += im2_aligned*0.5;
 
     // Draw prevImage in blank
-    Mat aux1 = blank.colRange(-r.x,-r.x+prevImage.cols).rowRange(-r.y,-r.y+prevImage.rows);
-    Mat im1 = prevImage*0.5 + aux1;
+    cv::Mat aux1 = blank.colRange(-r.x,-r.x+prevImage.cols).rowRange(-r.y,-r.y+prevImage.rows);
+    cv::Mat im1 = prevImage*0.5 + aux1;
     im1.copyTo(aux1);
 
     // Draw rectangles
     for (int i = 0; i < 4; i++)
-        line(blank, yourPoints[i], yourPoints[(i+1)%4], Scalar(0,255,0));
+        line(blank, yourPoints[i], yourPoints[(i+1)%4], cv::Scalar(0,255,0));
     for (int i = 0; i < 4; i++)
-        line(blank, transformedPoints[i], transformedPoints[(i+1)%4], Scalar(0,0,255));
+        line(blank, transformedPoints[i], transformedPoints[(i+1)%4], cv::Scalar(0,0,255));
 
     // Draw arrow
-    rectangle(blank,Rect(yourPoints[4]-Point2f(2.5,2.5), Size2f(5,5)), Scalar(0,255,0));
-    circle(blank,transformedPoints[4],10,Scalar(0,0,255));
-    line(blank, yourPoints[4], transformedPoints[4], Scalar(0,0,255));
-    line(blank, transformedPoints[4], transformedPoints[5], Scalar(255,255,255));
-    line(blank, transformedPoints[4], transformedPoints[6], Scalar(255,255,255));
+    rectangle(blank,cv::Rect(yourPoints[4]-cv::Point2f(2.5,2.5), cv::Size2f(5,5)), cv::Scalar(0,255,0));
+    circle(blank,transformedPoints[4],10,cv::Scalar(0,0,255));
+    line(blank, yourPoints[4], transformedPoints[4], cv::Scalar(0,0,255));
+    line(blank, transformedPoints[4], transformedPoints[5], cv::Scalar(255,255,255));
+    line(blank, transformedPoints[4], transformedPoints[6], cv::Scalar(255,255,255));
 
 
     // Show final result
-//    namedWindow( "Image 1", WINDOW_KEEPRATIO );
-//    namedWindow( "Image 2", WINDOW_KEEPRATIO );
-//    namedWindow( "Image 2 Aligned", WINDOW_KEEPRATIO );
-//    namedWindow( "Image Blank", WINDOW_KEEPRATIO );
+//    cv::namedWindow( "Image 1", cv::WINDOW_KEEPRATIO );
+//    cv::namedWindow( "Image 2", cv::WINDOW_KEEPRATIO );
+//    cv::namedWindow( "Image 2 Aligned", cv::WINDOW_KEEPRATIO );
+//    cv::namedWindow( "Image Blank", cv::WINDOW_KEEPRATIO );
     imshow("Image Blank", blank);
 //    imshow("Image 2 Aligned", im2_aligned);
-//    waitKey(0);
+//    cv::waitKey(0);
 }
 
-pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
+pair<Pose,bool> DroneRobot::findOdometryUsingECC(cv::Mat& prevImage, cv::Mat& curImage)
 {
-    Mat im1_gray, im2_gray;
+    cv::Mat im1_gray, im2_gray;
 
 //    // Reduce size of images
-//    resize(prevImage,im1_gray,Size(0,0),0.2,0.2);
-//    resize(curImage,im2_gray,Size(0,0),0.2,0.2);
+//    resize(prevImage,im1_gray,cv::Size(0,0),0.2,0.2);
+//    resize(curImage,im2_gray,cv::Size(0,0),0.2,0.2);
 
     // Convert images to gray scale;
     cvtColor(prevImage, im2_gray, CV_BGR2GRAY);
@@ -1155,16 +1158,16 @@ pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
 //    imshow("Image 2", im2_gray);
 
     // Define the motion model
-    const int warp_mode = MOTION_EUCLIDEAN;
+    const int warp_mode = cv::MOTION_EUCLIDEAN;
 
     // Set a 2x3 or 3x3 warp matrix depending on the motion model.
-    Mat warp_matrix;
+    cv::Mat warp_matrix;
 
     // Initialize the matrix to identity
-    if ( warp_mode == MOTION_HOMOGRAPHY )
-        warp_matrix = Mat::eye(3, 3, CV_32F);
+    if ( warp_mode == cv::MOTION_HOMOGRAPHY )
+        warp_matrix = cv::Mat::eye(3, 3, CV_32F);
     else
-        warp_matrix = Mat::eye(2, 3, CV_32F);
+        warp_matrix = cv::Mat::eye(2, 3, CV_32F);
 
     // Specify the number of iterations.
     int number_of_iterations = 1000;
@@ -1174,7 +1177,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
     double termination_eps = 1e-10;
 
     // Define termination criteria
-    TermCriteria criteria (TermCriteria::COUNT+TermCriteria::EPS, number_of_iterations, termination_eps);
+    cv::TermCriteria criteria (cv::TermCriteria::COUNT+cv::TermCriteria::EPS, number_of_iterations, termination_eps);
 
     try
     {
@@ -1197,19 +1200,19 @@ pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
     }
 
     // Check quality of matching
-    Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
-    Mat mask;
-    warpAffine(whiteMask, mask, warp_matrix, whiteMask.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+    cv::Mat whiteMask(curImage.rows, curImage.cols, CV_8UC3, cv::Scalar(255,255,255));
+    cv::Mat mask;
+    warpAffine(whiteMask, mask, warp_matrix, whiteMask.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP);
 
-    Mat templ(curImage.rows, curImage.cols, CV_8UC3, Scalar(255,255,255));
-    warpAffine(curImage, templ, warp_matrix, curImage.size(), INTER_LINEAR + WARP_INVERSE_MAP);
+    cv::Mat templ(curImage.rows, curImage.cols, CV_8UC3, cv::Scalar(255,255,255));
+    warpAffine(curImage, templ, warp_matrix, curImage.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP);
 //    imshow("Mask", mask);
 //    imshow("Aligned", templ);
 
     /// "Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED";
     int match_method = CV_TM_CCORR_NORMED;
 
-    Mat result;
+    cv::Mat result;
     result.create( 1, 1, CV_32FC1 );
 
     matchTemplate( prevImage, templ, result, match_method, mask );
@@ -1219,7 +1222,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
     if(!runQuiet)
         drawMatchedImages(curImage,prevImage,warp_matrix);
 
-    char k = waitKey(20);
+    char k = cv::waitKey(20);
     if (k=='g' || k=='G')
         cout << " GOOD odometry! :)" << endl;
     else if (k=='b' || k=='B')
@@ -1233,7 +1236,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingECC(Mat& prevImage, Mat& curImage)
     return pair<Pose,bool>(p,true);
 }
 
-pair<Pose,bool> DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
+pair<Pose,bool> DroneRobot::findOdometry(cv::Mat& prevImage, cv::Mat& curImage)
 {
     pair<Pose,bool> odom;
     odom.second = false;
@@ -1247,18 +1250,18 @@ pair<Pose,bool> DroneRobot::findOdometry(Mat& prevImage, Mat& curImage)
 //    cout << "cT " << cT-0.01 << endl;
 
     if(odom.second == false){
-//        waitKey(10);
+//        cv::waitKey(10);
 //        cout << "ECC" << endl;
 //        odom = findOdometryUsingECC(prevImage,curImage);
     }
     if(!runQuiet)
-        waitKey();
+        cv::waitKey();
     return odom;
 }
 
-pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curImage, double cT)
+pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(cv::Mat& prevImage, cv::Mat& curImage, double cT)
 {
-    Mat img_1, img_2;
+    cv::Mat img_1, img_2;
 
     // Convert images to gray scale;
     cvtColor(prevImage, img_2, CV_BGR2GRAY);
@@ -1266,14 +1269,14 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    Ptr<Feature2D> detector=xfeatures2d::SIFT::create(20000,8,cT);
-    Ptr<Feature2D> extractor=xfeatures2d::SIFT::create(20000,8,cT);
+    cv::Ptr<cv::Feature2D> detector=cv::xfeatures2d::SIFT::create(20000,8,cT);
+    cv::Ptr<cv::Feature2D> extractor=cv::xfeatures2d::SIFT::create(20000,8,cT);
 
-    std::vector<KeyPoint> keypoints_1, keypoints_2;
-    Mat descriptors_1, descriptors_2;
+    std::vector<cv::KeyPoint> keypoints_1, keypoints_2;
+    cv::Mat descriptors_1, descriptors_2;
 
-//    detector->detectAndCompute(img_1,noArray(),keypoints_1,descriptors_1);
-//    detector->detectAndCompute(img_2,noArray(),keypoints_2,descriptors_2);
+//    detector->detectAndCompute(img_1,cv::noArray(),keypoints_1,descriptors_1);
+//    detector->detectAndCompute(img_2,cv::noArray(),keypoints_2,descriptors_2);
 
     detector->detect(img_1,keypoints_1);
     extractor->compute(img_1,keypoints_1,descriptors_1);
@@ -1282,8 +1285,8 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     extractor->compute(img_2,keypoints_2,descriptors_2);
 
     //-- Step 3: Matching descriptor vectors using FLANN matcher
-    FlannBasedMatcher matcher;
-    std::vector< DMatch > matches;
+    cv::FlannBasedMatcher matcher;
+    std::vector< cv::DMatch > matches;
     matcher.match( descriptors_1, descriptors_2, matches );
 
     double max_dist = 0; double min_dist = 100;
@@ -1302,7 +1305,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     //-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
     //-- small)
     //-- PS.- radiusMatch can also be used here.
-    std::vector< DMatch > good_matches;
+    std::vector< cv::DMatch > good_matches;
 
     for( int i = 0; i < matches.size(); i++ )
     {
@@ -1312,10 +1315,10 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     }
 
     //-- Draw only "good" matches
-    Mat img_matches;
+    cv::Mat img_matches;
     drawMatches( img_1, keypoints_1, img_2, keypoints_2,
-               good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-               vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+               good_matches, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
+               vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
 //    for( int i = 0; i < (int)good_matches.size(); i++ )
 //        printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx );
@@ -1323,7 +1326,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     int minNumPoints = 6;
 
     // Find transformation
-    std::vector<Point2f> points1, points2;
+    std::vector<cv::Point2f> points1, points2;
     for( int i = 0; i < good_matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
@@ -1331,32 +1334,32 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
         points2.push_back( keypoints_2[ good_matches[i].trainIdx ].pt );
     }
 
-    Mat H;
+    cv::Mat H;
     if(good_matches.size()>=minNumPoints)
         H = findHomography( points1, points2, CV_RANSAC );
 
 
     //-- Get the corners from the image_1 ( the object to be "detected" )
-    std::vector<Point2f> obj_corners(7);
+    std::vector<cv::Point2f> obj_corners(7);
     obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( img_1.cols, 0 );
     obj_corners[2] = cvPoint( img_1.cols, img_1.rows ); obj_corners[3] = cvPoint( 0, img_1.rows );
 
     obj_corners[4] = cvPoint( img_1.cols/2, img_1.rows/2 ); // center
     obj_corners[5] = cvPoint( img_1.cols, img_1.rows/2 ); obj_corners[6] = cvPoint( img_1.cols/2, 0 );
 
-    std::vector<Point2f> scene_corners(7);
+    std::vector<cv::Point2f> scene_corners(7);
 
     if(!H.empty()){
         perspectiveTransform( obj_corners, scene_corners, H);
 
         //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-        line( img_matches, scene_corners[0] + Point2f( img_1.cols, 0), scene_corners[1] + Point2f( img_1.cols, 0), Scalar(0, 255, 0), 4 );
-        line( img_matches, scene_corners[1] + Point2f( img_1.cols, 0), scene_corners[2] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( img_matches, scene_corners[2] + Point2f( img_1.cols, 0), scene_corners[3] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( img_matches, scene_corners[3] + Point2f( img_1.cols, 0), scene_corners[0] + Point2f( img_1.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[0] + cv::Point2f( img_1.cols, 0), scene_corners[1] + cv::Point2f( img_1.cols, 0), cv::Scalar(0, 255, 0), 4 );
+        line( img_matches, scene_corners[1] + cv::Point2f( img_1.cols, 0), scene_corners[2] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[2] + cv::Point2f( img_1.cols, 0), scene_corners[3] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
+        line( img_matches, scene_corners[3] + cv::Point2f( img_1.cols, 0), scene_corners[0] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 255, 0), 4 );
 
-        line( img_matches, scene_corners[4] + Point2f( img_1.cols, 0), scene_corners[5] + Point2f( img_1.cols, 0), Scalar( 0, 0, 255), 4 );
-        line( img_matches, scene_corners[4] + Point2f( img_1.cols, 0), scene_corners[6] + Point2f( img_1.cols, 0), Scalar( 255, 0, 0), 4 );
+        line( img_matches, scene_corners[4] + cv::Point2f( img_1.cols, 0), scene_corners[5] + cv::Point2f( img_1.cols, 0), cv::Scalar( 0, 0, 255), 4 );
+        line( img_matches, scene_corners[4] + cv::Point2f( img_1.cols, 0), scene_corners[6] + cv::Point2f( img_1.cols, 0), cv::Scalar( 255, 0, 0), 4 );
     }
 
     Pose p;
@@ -1366,7 +1369,7 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(Mat& prevImage, Mat& curIm
     if(!H.empty()){
         H = H.inv();
         if(!runQuiet)
-            drawMatchedImages(prevImage,curImage,H,MOTION_HOMOGRAPHY);
+            drawMatchedImages(prevImage,curImage,H,cv::MOTION_HOMOGRAPHY);
 
         // Compute approximate translation and rotation
         p.y = scene_corners[4].x - obj_corners[4].x;

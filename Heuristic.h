@@ -5,7 +5,7 @@ class Heuristic;
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/opencv.hpp>
-using namespace cv;
+//using namespace cv;
 
 
 #include <climits>
@@ -34,6 +34,7 @@ enum STRATEGY{
     CREATE_OBSERVATIONS,
     TEMPLATE_MATCHING,
     FEATURE_MATCHING,
+    SIFT_MCL,
 };
 
 class Heuristic
@@ -41,10 +42,10 @@ class Heuristic
 public:
     Heuristic(STRATEGY s, int id, double l, unsigned int cd);
 
-    virtual double calculateValue(int x, int y, Mat *image, Mat* map=NULL) = 0;
+    virtual double calculateValue(int x, int y, cv::Mat *image, cv::Mat* map=NULL) = 0;
 
-    double calculateGradientOrientation(int x, int y, Mat *image, Mat* map);
-    double calculateGradientSobelOrientation(int x, int y, Mat *image, Mat* map);
+    double calculateGradientOrientation(int x, int y, cv::Mat *image, cv::Mat* map);
+    double calculateGradientSobelOrientation(int x, int y, cv::Mat *image, cv::Mat* map);
 
     STRATEGY getType();
     double getLimiar();
@@ -53,7 +54,7 @@ public:
     void setLimiar(double val);
     void setColorDifference(double val);
 
-    vec3 getValuefromPixel(int x, int y, Mat *image);
+    vec3 getValuefromPixel(int x, int y, cv::Mat *image);
 
 protected:
     STRATEGY type;
@@ -67,7 +68,7 @@ class KernelHeuristic : public Heuristic
 public:
     KernelHeuristic(STRATEGY s, int id, double l, unsigned int cd, int rad, double* k, int kW, int kH);
 
-    virtual double calculateValue(int x, int y, Mat *image, Mat* map) = 0;
+    virtual double calculateValue(int x, int y, cv::Mat *image, cv::Mat* map) = 0;
 
     double getRadius();
 

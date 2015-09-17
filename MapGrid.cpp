@@ -6,7 +6,7 @@
 #include "SomeKernels.h"
 #include "MapGrid.h"
 
-MapGrid::MapGrid(Mat *image, Mat* map, Heuristic *heuristic) : heuristic(heuristic)
+MapGrid::MapGrid(cv::Mat *image, cv::Mat* map, Heuristic *heuristic) : heuristic(heuristic)
 {
     // initialize heuristic values
     width = image->cols;
@@ -208,12 +208,12 @@ bool MapGrid::isGradientReliable(int x, int y)
     return reliableGradients[y*width + x];
 }
 
-void MapGrid::calculateHeuristicFor(int x, int y, Mat* image, Mat* map)
+void MapGrid::calculateHeuristicFor(int x, int y, cv::Mat* image, cv::Mat* map)
 {
     heuristicValues[y*width + x] = heuristic->calculateValue(x,y,image,map);
 }
 
-double MapGrid::calculateGradientFor(int x, int y, Mat* image, Mat* map)
+double MapGrid::calculateGradientFor(int x, int y, cv::Mat* image, cv::Mat* map)
 {
     return heuristic->calculateGradientOrientation(x,y,image,map);
 }
@@ -356,31 +356,31 @@ void MapGrid::smoothMap()
 
 void MapGrid::draw()
 {
-    Mat a(this->getHeight(), this->getWidth(),CV_8UC1,Scalar(0));
+    cv::Mat a(this->getHeight(), this->getWidth(),CV_8UC1,cv::Scalar(0));
     for(int hI=0; hI < this->getWidth(); ++hI)
         for(int wI=0; wI < this->getHeight(); wI++)
             a.at<char>(wI, hI) = this->getHeuristicValue(hI,wI);
     //                    if(!mg->isKnown(hI,wI))
     //                        a.at<char>(hI,wI) = 255;
 
-    resize(a,a,Size(0,0),0.2,0.2);
-    namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
+    resize(a,a,cv::Size(0,0),0.2,0.2);
+    cv::namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
     imshow("Map Grid Values",a);
-    waitKey(0);
+    cv::waitKey(0);
 }
 
 
 void MapGrid::drawLine()
 {
-    Mat a(this->getHeight(), this->getWidth(), CV_8UC1,Scalar(0));
+    cv::Mat a(this->getHeight(), this->getWidth(), CV_8UC1,cv::Scalar(0));
     for(int hI=0; hI < this->getWidth(); ++hI)
         for(int wI=0; wI < this->getHeight(); wI++)
             a.at<char>(wI, hI) = (this->getHeuristicValue(hI,wI)>100?this->getHeuristicValue(hI,wI):0);
     //                    if(!mg->isKnown(hI,wI))
     //                        a.at<char>(hI,wI) = 255;
 
-    resize(a,a,Size(0,0),0.2,0.2);
-    namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
+    resize(a,a,cv::Size(0,0),0.2,0.2);
+    cv::namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
     imshow("Map Grid Values",a);
-    waitKey(0);
+    cv::waitKey(0);
 }
