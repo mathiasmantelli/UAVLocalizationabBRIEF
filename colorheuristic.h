@@ -10,6 +10,7 @@ class ColorHeuristic : public Heuristic
 public:
     ColorHeuristic(STRATEGY s, int id, int cd, double limiar);
     double calculateValue(int x, int y, cv::Mat *image, cv::Mat *map=NULL);
+    double calculateValue2(int x, int y, cv::Mat *image, cv::Mat *map=NULL);
 
     // set methods
     void setBaselineColor(int x, int y, cv::Mat *image);

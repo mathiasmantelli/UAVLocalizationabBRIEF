@@ -49,7 +49,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     globalMaps.push_back(grayMap);
 
     cv::Mat labMap;
-    originalMap.convertTo(labMap, CV_32F);
+    originalMap.convertTo(labMap, CV_32FC3);
     labMap*=1/255.0;
     cvtColor(labMap, labMap, CV_BGR2Lab);
     globalMaps.push_back(labMap);
@@ -166,8 +166,12 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             // Create color heuristic
             heur = new ColorHeuristic(COLOR_ONLY, id, hT->colorDifference, hT->threshold);
         }
-        else if(hT->strategy == DENSITY || hT->strategy == ENTROPY ||
-                hT->strategy == MEAN_SHIFT || hT->strategy == SIFT_MCL || hT->strategy == MUTUAL_INFORMATION )
+        else if(   hT->strategy == DENSITY
+                || hT->strategy == ENTROPY
+                || hT->strategy == MEAN_SHIFT
+                || hT->strategy == SIFT_MCL
+                || hT->strategy == MUTUAL_INFORMATION
+                || hT->strategy==HISTOGRAM_MATCHING)
         {
             double r = hT->radius;
             double* kMask;
@@ -199,11 +203,18 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                 kHeight = c.height();
             }
 
-            if(hT->strategy == MEAN_SHIFT){
+            if(hT->strategy == MEAN_SHIFT)
+            {
                 heur = new MeanShiftHeuristic(MEAN_SHIFT, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference);
-            }else if(hT->strategy == SIFT_MCL){
+            }
+            else if(hT->strategy == SIFT_MCL)
+            {
                     heur = new SIFTHeuristic(SIFT_MCL, id, grayMap, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference);
-            }else{
+            }
+            else if(hT->strategy == HISTOGRAM_MATCHING)
+                    heur = new HistogramHeuristic(HISTOGRAM_MATCHING, id, kMask, kWidth, kHeight, hT->radius, 2.3, hT->colorDifference, hT->threshold);
+            else
+            {
                 // Create kernel heuristic
                 if(hT->strategy == DENSITY)
                     heur = new DensityHeuristic(DENSITY, id, kMask, kWidth, kHeight, hT->radius, hT->threshold, hT->colorDifference);
