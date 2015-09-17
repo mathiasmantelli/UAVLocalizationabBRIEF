@@ -544,9 +544,9 @@ void CAntiEllipsoid::calculateKernel(void)
 			m_kernelMask[x+m_maskSizeX*y]=circular_value;
 			m_normalizationConstant += circular_value;
 			//std::cout << circular_value << " ";
-			std::cout << std::setprecision(3) << std::fixed << circular_value<< " ";
+            //std::cout << std::setprecision(3) << std::fixed << circular_value<< " ";
 		}
-		std::cout << std::endl;
+        //std::cout << std::endl;
 	}
 	//Normalize it
 	normalizeMask();

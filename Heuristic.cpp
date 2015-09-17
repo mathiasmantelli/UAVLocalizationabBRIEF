@@ -39,8 +39,9 @@ void Heuristic::setColorDifference(double val)
 
 vec3 Heuristic::getValuefromPixel(int x, int y, Mat *image)
 {
-    if(image->type() != CV_32FC3)
+    if(image->type() != CV_32FC3 && image->type() != CV_32F)
     {
+
         Vec3b color = image->at<Vec3b>(y,x);
         double r = color[0];
         double g = color[1];

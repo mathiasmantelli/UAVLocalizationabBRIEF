@@ -43,7 +43,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<Mat> &gMa
     globalMaps(gMaps)
 {
 //    numParticles = 70000;
-    numParticles = 5000;
+    numParticles = 3000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -629,7 +629,7 @@ void MCL::weighting(Mat& z_robot, Pose &u)
         int y=round(particles[i].p.y);
 
         // check if particle is not valid (unknown or obstacle)
-        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY)
+        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != HISTOGRAM_MATCHING)
             if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
                 particles[i].w = 0.0;
                 count++;
@@ -637,10 +637,11 @@ void MCL::weighting(Mat& z_robot, Pose &u)
             }
 
         double varColor = pow(1.0, 2.0); // normalized gaussian
-        double varDensity = pow(0.25,2.0); //10%
-        double varEntropy = pow(0.4,2.0); //10%
-        double varMI = pow(0.15,2.0); //10%
-        double varMeanShift = pow(1.0,2.0); //10%
+        double varDensity = pow(1.0f,2.0); //10%
+        double varEntropy = pow(1.0f,2.0); //10%
+        double varMI = pow(1.0,2.0); //10%
+        double varMeanShift = pow(1.0,2.0); // 1 std dev
+        double varHistogram = pow(.33, 2.0);
         double prob=1.0;
 
         for(int l=0;l<heuristics.size();++l)
@@ -658,12 +659,13 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                 }
                 case COLOR_ONLY:
                 {
+                    ColorHeuristic* ch = (ColorHeuristic*) heuristics[l];
                     if(x<0 || x>=globalMaps[mapID].cols || y<0 || y>=globalMaps[mapID].rows){
                         prob = 0;
                         break;
                     }
                     /// compute color difference
-                    double diff  = h->calculateValue(x,y,&globalMaps[mapID]);
+                    double diff  = ch->calculateValue(x,y,&globalMaps[mapID]);
 
                     /// Gaussian weighing
                     if(diff!=HEURISTIC_UNDEFINED)
@@ -707,20 +709,31 @@ void MCL::weighting(Mat& z_robot, Pose &u)
                         mih->setCashedEntropy(cachedMaps[l]->getPureHeuristicValue(x,y));
                         double val=mih->calculateValue(x, y,
                                     globalMaps[mapID],
-                                    &globalMaps[3], // Mask
+                                    &globalMaps[globalMaps.size()-1], // Mask
                                     &frameColorConverted[mapID],
                                     &binaryFrameMask,
                                     particles[i].p);
 
-                        // tentativa de peso com MI:
-                        // racional=inverso da entropia mais próximo da média
-                        // Sem considerar rotação
                         prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(val,2)/varMI));
 
                     }
                     if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
                         prob *= 1.0/numParticles;
                     break;
+                }
+            case HISTOGRAM_MATCHING:
+                {
+                    if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
+                    {
+                        HistogramHeuristic* hh = (HistogramHeuristic*) heuristics[l];
+                        double distance =hh->calculateValue(x, y,
+                                                            &globalMaps[mapID],
+                                                            &globalMaps[globalMaps.size()-1]);
+//                        if(distance == 0)
+//                            distance = 1.0/particles.size();
+//                        else
+                            prob *= 1.0/(sqrt(2*M_PI*varHistogram))*exp(-0.5*(pow(distance,2)/varHistogram));
+                    }
                 }
             }
         }
@@ -742,14 +755,27 @@ void MCL::weighting(Mat& z_robot, Pose &u)
     if(sumWeights==0.0)
     {
         for(int i=0; i<particles.size(); i++) {
-            // check if particle is valid (known and not obstacle)
-            if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-               cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
-                particles[i].w = 0.0;
+            if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != HISTOGRAM_MATCHING)
+            {
+                // check if particle is valid (known and not obstacle)
+                if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
+                        cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
+                    particles[i].w = 0.0;
+                }
+                else {
+                    particles[i].w = 1.0;
+                    sumWeights+=1.0;
+                }
             }
-            else {
-                particles[i].w = 1.0;
-                sumWeights+=1.0;
+            else
+            {
+                if(particles[i].p.x<0 || particles[i].p.y<0 || particles[i].p.y>=this->globalMaps[0].rows
+                        || particles[i].p.x>=this->globalMaps[0].cols )
+                    particles[i].w = 0.0;
+                else{
+                    particles[i].w = 1.0;
+                    sumWeights+=1.0;
+                 }
             }
         }
     }
@@ -1213,6 +1239,15 @@ void MCL::prepareWeighting(Mat &z)
 
             break;
             }
+        case HISTOGRAM_MATCHING:
+            {
+                HistogramHeuristic* hh = (HistogramHeuristic*) heuristics[c];
+                heuristicValues[c] = hh->setObservedHistogram(    halfCols,
+                                             halfRows,
+                                             &frameColorConverted[mapID],
+                                             &binaryFrameMask);
+                break;
+            }
         }
     }
 }
@@ -1226,7 +1261,8 @@ void MCL::createColorVersions(Mat& imageRGB)
     cvtColor(frameColorConverted[1], frameColorConverted[1],CV_GRAY2BGR);
 
     // CIELAB1976 || CIELAB1994 || CMCLAB1984 || CIELAB2000 || CIELAB1994MIX || CIELAB2000MIX
-    imageRGB.convertTo(frameColorConverted[2], CV_32F);
+    imageRGB.convertTo(frameColorConverted[2], CV_32FC3);
     frameColorConverted[2]*=1/255.0;
-    cvtColor(imageRGB, frameColorConverted[2], CV_BGR2Lab);
+    cvtColor(frameColorConverted[2],frameColorConverted[2], CV_BGR2Lab);
+
 }

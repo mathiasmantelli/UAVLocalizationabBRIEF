@@ -11,11 +11,141 @@ using namespace std;
 MIHeuristic::MIHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd, unsigned int nbins):
 EntropyHeuristic(s,id,k,kW,kH,rad,l,cd,nbins)
 {
-    if(color_difference != INTENSITYC)
+    if(color_difference == INTENSITYC)
         maxJointEntropy = 2*log2(numBinsPerChannel);
     else
         maxEntropyValue = 6*log2(numBinsPerChannel);
 
+}
+HistogramHeuristic::HistogramHeuristic(STRATEGY s, int id, double *k, int kW, int kH, int rad, double l, unsigned int cd, unsigned int nbins):
+    EntropyHeuristic(s,id,k,kW,kH,rad,l,cd,nbins)
+{
+}
+
+double HistogramHeuristic::setObservedHistogram(int x, int y, Mat *frame, Mat *frameMap)
+{
+    int xini = x-radius;
+    int yini = y-radius;
+    int xend = x+radius;
+    int yend = y+radius;
+
+    if(xini<0 || yini<0 || xend>=frame->cols || yend>=frame->rows)
+        return HEURISTIC_UNDEFINED;
+
+    int kpos = 0;
+    vec3 free(0.0,0.0,0.0);
+
+
+    // clear histogram
+    frameHistogram.clear();
+    std::map<ID,double>::iterator it;
+
+
+    // compute histogram
+    for(int w = xini; w<=xend; ++w)
+    {
+        for(int h = yini; h<=yend; ++h)
+        {
+            // Check if there is an UNDEF value
+            if(kernel[kpos]==0.0)
+            {
+                kpos++;
+                continue;
+            }
+
+            //determine if pixel is in free region
+            vec3 pos(getValuefromPixel(w,h,frameMap));
+
+            // ignore pixel outside map
+            if(pos!=free)
+                return HEURISTIC_UNDEFINED;
+
+            vec3 currentColor(getValuefromPixel(w,h,frame));
+            ID id =  getIDfromColor(currentColor);
+
+            it = frameHistogram.find(id);
+            if (it != frameHistogram.end()){
+                frameHistogram[id] += kernel[kpos];
+            }else{
+                frameHistogram[id] = kernel[kpos];
+            }
+
+            kpos++;
+        }
+    }
+
+    for(it = frameHistogram.begin(); it!= frameHistogram.end(); ++it)
+        cout << it->second << " ";
+    cout << endl;
+}
+
+double HistogramHeuristic::calculateValue(int x, int y, Mat *image, Mat *map)
+{
+    int xini = x-radius;
+    int yini = y-radius;
+    int xend = x+radius;
+    int yend = y+radius;
+
+    if(xini<0 || yini<0 || xend>=image->cols || yend>=image->rows)
+        return HEURISTIC_UNDEFINED;
+
+    int kpos = 0;
+    vec3 free(0.0,0.0,0.0);
+
+
+    // clear histogram
+    std::map<ID,double> particleHistogram;
+    std::map<ID,double>::iterator it;
+
+
+    // compute histogram
+    for(int w = xini; w<=xend; w++)
+    {
+        for(int h = yini; h<=yend; h++)
+        {
+            // Check if there is an UNDEF value
+            if(kernel[kpos]==0.0)
+            {
+                kpos++;
+                continue;
+            }
+
+            //determine if pixel is in free region
+            vec3 pos(getValuefromPixel(w,h,map));
+
+            // ignore pixel outside map
+            if(pos!=free)
+            {
+                return HEURISTIC_UNDEFINED;
+            }
+
+            vec3 currentColor(getValuefromPixel(w,h,image));
+            ID id =  getIDfromColor(currentColor);
+
+            it = particleHistogram.find(id);
+            if (it != particleHistogram.end()){
+                particleHistogram[id] += kernel[kpos];
+            }else{
+                particleHistogram[id] = kernel[kpos];
+            }
+
+            kpos++;
+        }
+    }
+
+    // Compute
+    double bathacharryaCoefficient = 0.0;
+    std::map<ID,double>::iterator it2;
+    for(it = particleHistogram.begin(); it!= particleHistogram.end(); ++it)
+    {
+        it2 = frameHistogram.find(it->first);
+        if (it2 != frameHistogram.end()){
+            bathacharryaCoefficient+=sqrt(it->second*it2->second);
+       }
+    }
+    // hellingerDistance
+//    cout << "Batha: " << bathacharryaCoefficient2 << endl;
+    return sqrt(1.0-bathacharryaCoefficient*bathacharryaCoefficient);
 }
 
 EntropyHeuristic::EntropyHeuristic(STRATEGY s, int id, double *k,int kW, int kH,int rad, double l, unsigned int cd, unsigned int nbins):
@@ -128,42 +258,45 @@ double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *fram
     std::map<std::pair<ID,ID>, double> jointPDF;
     std::map<std::pair<ID,ID>, double>::iterator it;
 
+    int size = 2*radius+1+2;
+    //cv::Mat subImg = Utils::getRotatedROIFromImage(p,Point2f(size, size), image);
+    // The subimage ranges
     int xini = x-radius;
     int yini = y-radius;
     int xend = x+radius;
     int yend = y+radius;
-
-    int xiniF = frame->cols/2-radius;
-    int yiniF = frame->rows/2-radius;
 
     // There are two extra pixels to facilitate subImage rotation and interpolation
     if(xini-2<0 || yini-2<0 || xend+2>=image.cols || yend+2>=image.rows)
     {
         return HEURISTIC_UNDEFINED;
     }
-    // Rotation is positive when it is clockwise according to the documentation
-    // Creating a subimage and setting a border with extra pixels from the image to improve interpolation
 
-    int size = 2*radius+1+2;
-    cv::Mat subImg = Utils::getRotatedROIFromImage(p,Point2f(size, size), image);
-    //imshow("ROI", subImg);
-    //waitKey(0);
+    Range cRange(xini, xend+1);
+    Range rRange(yini, yend+1);
+    cv::Mat subImg(image, rRange, cRange);
+    cv::Point2f pt( subImg.cols/2.0f, subImg.rows/2.0f);
+    cv::Mat r = cv::getRotationMatrix2D(pt, RAD2DEG(p.theta)+90.0, 1.0);
+    cv::warpAffine(subImg, subImg, r, cv::Size(size, size));
 
     // Get new boundaries for the patch extracted from the image
-    int xiniROI = x-subImg.cols/2-radius;
-    int yiniROI = y-subImg.rows/2-radius;
+    int xiniROI = subImg.cols/2-radius;
+    int yiniROI = subImg.rows/2-radius;
+    if(subImg.rows%2!=0)
+        yiniROI--;
+    if(subImg.cols%2!=0)
+        xiniROI--;
 
-    vec3 free(0.0,0.0,0.0);
+    int xiniF = frame->cols/2-radius;
+    int yiniF = frame->rows/2-radius;
     int kpos=0;
 
     // compute histogram
     int wF=xiniF;
-    int hF=yiniF;
-    int wROI = xiniROI;
-    int hROI = yiniROI;
-    for(int w = xini; w<=xend; ++w)
+    for(int wROI = xiniROI; wROI<size; ++wROI, ++wF)
     {
-        for(int h = yini; h<=yend; ++h)
+        int hF = yiniF;
+        for(int hROI = yiniROI; hROI<size; ++hROI)
         {
             // Check if there is an UNDEF value
             if(kernel[kpos]==0.0)
@@ -172,16 +305,10 @@ double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *fram
                 continue;
             }
 
-            //determine if pixel is in free region
-            vec3 pos(getValuefromPixel(w,h,map));
-
-//            // ignore pixel outside map
-//            if(pos!=free)
-//                return HEURISTIC_UNDEFINED;
-
             // Construct the n-d ID of the joint distribution
             vec3 imageColor(getValuefromPixel(wROI,hROI,&subImg));
             ID idImage =  getIDfromColor(imageColor);
+
             vec3 frameColor(getValuefromPixel(wF,hF,frame));
             ID idFrame =  getIDfromColor(frameColor);
             pair<ID,ID> ndID(std::make_pair(idFrame,idImage));
@@ -196,10 +323,7 @@ double MIHeuristic::calculateValue(int x, int y, Mat &image, Mat *map, Mat *fram
 
             kpos++;
             hF++;
-            hROI++;
         }
-        wF++;
-        wROI++;
     }
 
     // Compute joint Entropy

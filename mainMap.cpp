@@ -431,8 +431,8 @@ int main( int argc, char** argv )
 
     cout << "1. computing values: this will take a very long time for large kernels..." << endl;
 
-    resize(used,used,Size(0,0),0.2,0.2);
-    resize(map,map,Size(0,0),0.2,0.2);
+//    resize(used,used,Size(0,0),0.2,0.2);
+//    resize(map,map,Size(0,0),0.2,0.2);
 
     for(int y=h->getRadius();y<used.rows-h->getRadius();++y){
         for(int x=h->getRadius();x<used.cols-h->getRadius();++x)
