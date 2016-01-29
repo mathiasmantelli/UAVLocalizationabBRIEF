@@ -5,6 +5,8 @@
 #include "ColorCPU.h"
 #include "RadiusVolumeTransferFunctions.h"
 
+#include "Utils.h"
+
 class ColorHeuristic : public Heuristic
 {
 public:
@@ -19,9 +21,30 @@ public:
     // baseline color
     vec3 baselineColor;
     vec3 testedColor;
-private:
+protected:
     // Image density stuff
     CPUColorConverter convert;
+};
+
+class UnscentedColorHeuristic: public ColorHeuristic
+{
+public:
+    UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar);
+
+    double calculateValue(int x, int y, Pose p, cv::Mat *image, cv::Mat *map=NULL);
+
+    // set methods
+    void setBaselineColors(int x, int y, cv::Mat *image);
+
+    // baseline color
+    vector<vec3> baselineColors;
+    int delta;
+
+private:
+
+    double computeDiffColor(int x, int y, int whichPoint, cv::Mat *image, cv::Mat *map=NULL);
+
+
 };
 
 #endif // COLORHEURISTIC_H

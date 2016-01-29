@@ -25,6 +25,7 @@ class Heuristic;
 enum STRATEGY{
     SSD,
     COLOR_ONLY,
+    UNSCENTED_COLOR,
     ENTROPY,
     MUTUAL_INFORMATION,
     DENSITY,

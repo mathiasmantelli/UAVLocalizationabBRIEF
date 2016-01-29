@@ -42,8 +42,8 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-//    numParticles = 70000;
-    numParticles = 3000;
+
+    numParticles = 70000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -77,7 +77,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
 //            particles[i].p.y = globalMaps[0].rows/2;
 //            particles[i].p.theta = 0.0;
 
-            particles[i].p=initial;
+//            particles[i].p=initial;
 
             // check if particle is valid (known and not obstacle)
 //            if(realMap->isKnown((int)particles[i].p.x,(int)particles[i].p.y) &&
@@ -629,7 +629,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
         int y=round(particles[i].p.y);
 
         // check if particle is not valid (unknown or obstacle)
-        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != HISTOGRAM_MATCHING && heuristics[0]->getType() != SIFT_MCL)
+        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING && heuristics[0]->getType() != SIFT_MCL)
             if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
                 particles[i].w = 0.0;
                 count++;
@@ -666,6 +666,23 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     }
                     /// compute color difference
                     double diff  = ch->calculateValue(x,y,&globalMaps[mapID]);
+
+                    /// Gaussian weighing
+                    if(diff!=HEURISTIC_UNDEFINED)
+                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                    else
+                        prob *= 1.0/(numParticles);
+                    break;
+                }
+                case UNSCENTED_COLOR:
+                {
+                    UnscentedColorHeuristic* uch = (UnscentedColorHeuristic*) heuristics[l];
+                    if(x<uch->delta || x>=globalMaps[mapID].cols-uch->delta || y<uch->delta || y>=globalMaps[mapID].rows-uch->delta){
+                        prob = 0;
+                        break;
+                    }
+                    /// compute color difference
+                    double diff  = uch->calculateValue(x,y,particles[i].p,&globalMaps[mapID]);
 
                     /// Gaussian weighing
                     if(diff!=HEURISTIC_UNDEFINED)
@@ -760,7 +777,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
     if(sumWeights==0.0)
     {
         for(int i=0; i<particles.size(); i++) {
-            if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != HISTOGRAM_MATCHING)
+            if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING)
             {
                 // check if particle is valid (known and not obstacle)
                 if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
@@ -1200,6 +1217,19 @@ void MCL::prepareWeighting(cv::Mat &z)
                                  &frameColorConverted[mapID]);
             break;
             }
+        case UNSCENTED_COLOR:
+            {
+            UnscentedColorHeuristic* uch = (UnscentedColorHeuristic*) heuristics[c];
+            uch->setBaselineColors(halfCols,
+                                 halfRows,
+                                 &frameColorConverted[mapID]);
+            break;
+            }
+//        case UNSCENTED_DENSITY:
+//            {
+
+//            break;
+//            }
         case DENSITY:
         case ENTROPY:
             {

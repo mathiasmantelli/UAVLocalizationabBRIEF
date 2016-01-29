@@ -34,7 +34,9 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cv::Mat originalMap = cv::imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
     if(! originalMap.data )                              // Check for invalid input
     {
-        originalMap = cv::imread(mapPath+"/globalmap.png",CV_LOAD_IMAGE_COLOR);
+        originalMap = cv::imread(mapPath+"globalmap.png",CV_LOAD_IMAGE_COLOR);
+        cout<<"Endereco:"<<mapPath+"globalmap.png"<<endl;
+
         if(! originalMap.data )                              // Check for invalid input
         {
             cout <<  "Could not open or find local map" << std::endl ;
@@ -165,6 +167,11 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         {
             // Create color heuristic
             heur = new ColorHeuristic(COLOR_ONLY, id, hT->colorDifference, hT->threshold);
+        }
+        else if(hT->strategy == UNSCENTED_COLOR)
+        {
+            // Create unscented color heuristic
+            heur = new UnscentedColorHeuristic(UNSCENTED_COLOR, id, hT->colorDifference, hT->threshold);
         }
         else if(   hT->strategy == DENSITY
                 || hT->strategy == ENTROPY

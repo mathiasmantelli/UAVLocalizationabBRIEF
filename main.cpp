@@ -165,6 +165,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=FEATURE_MATCHING;
                 else if(s.compare("COLOR")==0 || s.compare("color")==0)
                     ht->strategy=COLOR_ONLY;
+                else if(s.compare("UNSCENTED")==0 || s.compare("unscented")==0)
+                    ht->strategy=UNSCENTED_COLOR;
                 else if(s.compare("ENTROPY")==0 || s.compare("entropy")==0)
                     ht->strategy=ENTROPY;
                 else if(s.compare("MI")==0 || s.compare("mi")==0)

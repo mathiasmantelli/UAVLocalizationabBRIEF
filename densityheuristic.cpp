@@ -51,6 +51,9 @@ std::string strategyName(STRATEGY s)
     case COLOR_ONLY:
         return "COLOR_ONLY";
         break;
+    case UNSCENTED_COLOR:
+        return "UNSCENTED_COLOR";
+        break;
     case DENSITY:
         return "DENSITY";
         break;

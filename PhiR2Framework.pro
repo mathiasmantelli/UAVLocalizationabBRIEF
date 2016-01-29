@@ -55,6 +55,9 @@ HEADERS += \
     MeanShiftHeuristic.h \
     SiftHeuristic.h
 
-INCLUDEPATH+=/usr/local/Aria/include
+INCLUDEPATH += /usr/local/Aria/include
 INCLUDEPATH += -I/usr/local/include/opencv2
-LIBS+=-L/usr/local/lib -L/usr/local/Aria/lib -lAria -lpthread -lglut -lGLEW -ldl -lrt `pkg-config opencv --libs` -lGL -lfreeimage -lboost_system
+
+
+LIBS+=-L/usr/local/lib -L/usr/local/Aria/lib/ -lAria -lpthread -lglut -lGLEW -ldl -lrt `pkg-config opencv --libs` -lGL -lfreeimage -lboost_system -lopencv_ximgproc
+

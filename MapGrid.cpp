@@ -365,7 +365,7 @@ void MapGrid::draw()
 
     resize(a,a,cv::Size(0,0),0.2,0.2);
     cv::namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
-    imshow("Map Grid Values",a);
+//    imshow("Map Grid Values",a);
     cv::waitKey(0);
 }
 
@@ -381,6 +381,6 @@ void MapGrid::drawLine()
 
     resize(a,a,cv::Size(0,0),0.2,0.2);
     cv::namedWindow("Map Grid Values",CV_WINDOW_KEEPRATIO);
-    imshow("Map Grid Values",a);
+//    imshow("Map Grid Values",a);
     cv::waitKey(0);
 }

@@ -389,9 +389,11 @@ int main( int argc, char** argv )
 
         DensityHeuristic* dh = (DensityHeuristic*) h;
     //    if(dh->getColorDifference()==INTENSITYC)
-            dh->setLimiarAsMeanDifference(used, map);
+//        dh->setLimiarAsMeanDifference(used, map);
+
         //dh->setLimiar(2.3);
         cout << h->getLimiar() << endl;
+
 
         // Create output file
         outputName+=std::string("DENSITY") +
@@ -494,24 +496,24 @@ int main( int argc, char** argv )
 //    cv::FileStorage file(outputName, cv::FileStorage::WRITE);
 //    file << "density" << density;
 
-    Mat window;
-    resize(values,window,Size(0,0),0.2,0.2);
-    if(strategy==DENSITY){
-        namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
-        imshow( "Density Map", window );
-    }else if(strategy==ENTROPY){
-        namedWindow( "Entropy Map", CV_WINDOW_KEEPRATIO );
-        imshow( "Entropy Map", window );
-    }else if(strategy==SINGLE_COLOR_DENSITY){
-        namedWindow( "Single Color Density Map", CV_WINDOW_KEEPRATIO );
-        imshow( "Single Color Density Map", window );
-    }
-    namedWindow( "Original", CV_WINDOW_KEEPRATIO );
-    imshow( "Original", image );
-    namedWindow( "Map", CV_WINDOW_KEEPRATIO );
-    imshow( "Map", map );
+//    Mat window;
+//    resize(values,window,Size(0,0),0.2,0.2);
+//    if(strategy==DENSITY){
+////        namedWindow( "Density Map", CV_WINDOW_KEEPRATIO );
+////        imshow( "Density Map", window );
+//    }else if(strategy==ENTROPY){
+////        namedWindow( "Entropy Map", CV_WINDOW_KEEPRATIO );
+////        imshow( "Entropy Map", window );
+//    }else if(strategy==SINGLE_COLOR_DENSITY){
+////        namedWindow( "Single Color Density Map", CV_WINDOW_KEEPRATIO );
+////        imshow( "Single Color Density Map", window );
+//    }
+////    namedWindow( "Original", CV_WINDOW_KEEPRATIO );
+////    imshow( "Original", image );
+////    namedWindow( "Map", CV_WINDOW_KEEPRATIO );
+////    imshow( "Map", map );
 
- waitKey(0);
+// waitKey(0);
 
  return 0;
 }
