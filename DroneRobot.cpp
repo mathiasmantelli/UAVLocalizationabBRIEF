@@ -34,12 +34,13 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
     cv::Mat originalMap = cv::imread(mapPath+"/globalmap.jpg",CV_LOAD_IMAGE_COLOR);
     if(! originalMap.data )                              // Check for invalid input
     {
-        originalMap = cv::imread(mapPath+"globalmap.png",CV_LOAD_IMAGE_COLOR);
+        originalMap = cv::imread(mapPath+"/globalmap.png",CV_LOAD_IMAGE_COLOR);
         cout<<"Endereco:"<<mapPath+"globalmap.png"<<endl;
 
         if(! originalMap.data )                              // Check for invalid input
         {
             cout <<  "Could not open or find local map" << std::endl ;
+            cout<<"Endereco:"<<mapPath+"globalmap.png"<<endl;
             return;
         }
     }
@@ -148,6 +149,15 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
             locTechnique = TEMPLATE_MATCHING;
             break;
         }
+        if(hT->strategy == BRIEF)
+        {
+            heur = new BriefHeuristic(BRIEF, 1, 1, 1);
+            if(hT->lowThreshold != -1) ((BriefHeuristic*)heur)->lowThreshold = hT->lowThreshold;
+            if(hT->multiplierThreshold != -1) ((BriefHeuristic*)heur)->multiplierThreshold = hT->multiplierThreshold;
+            if(hT->margin != -1) ((BriefHeuristic*)heur)->margin = hT->margin;
+            if(hT->numberPairs != -1) ((BriefHeuristic*)heur)->totalPairs = hT->numberPairs;
+            ((BriefHeuristic*)heur)->printInfo();
+        }
         if(hT->strategy == FEATURE_MATCHING)
         {
             locTechnique = FEATURE_MATCHING;
@@ -178,7 +188,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
                 || hT->strategy == MEAN_SHIFT
                 || hT->strategy == SIFT_MCL
                 || hT->strategy == MUTUAL_INFORMATION
-                || hT->strategy==HISTOGRAM_MATCHING)
+                || hT->strategy == HISTOGRAM_MATCHING)
         {
             double r = hT->radius;
             double* kMask;
@@ -473,6 +483,7 @@ void DroneRobot::initializeFeatureMatching()
     if(! localMap.data )                              // Check for invalid input
     {
         cout <<  "Could not open or find local map" << std::endl ;
+        cout<<"Endereco:"<<imagesNames[0]<<endl;
         return;
     }
     int h = localMap.rows;
@@ -605,6 +616,7 @@ void DroneRobot::run()
     if(! currentMap.data )                              // Check for invalid input
     {
         cout <<  "Could not open or find local map" << std::endl ;
+        cout<<"Endereco:"<<imagesNames[step]<<endl;
         return;
     }
 

@@ -12,6 +12,7 @@
 #include "miheuristic.h"
 #include "MeanShiftHeuristic.h"
 #include "SiftHeuristic.h"
+#include "BriefHeuristic.h"
 
 int selectMapID(int colorDiff);
 

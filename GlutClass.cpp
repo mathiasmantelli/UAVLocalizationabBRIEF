@@ -180,7 +180,6 @@ void GlutClass::render()
 
 void GlutClass::screenshot()
 {
-
     stringstream ss;
     string imgName;
     ss << "../PhiR2Framework/Imgs/frame-" << setfill('0') << setw(6) << frame << ".png";

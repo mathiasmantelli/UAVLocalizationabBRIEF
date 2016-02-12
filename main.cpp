@@ -171,6 +171,8 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                     ht->strategy=ENTROPY;
                 else if(s.compare("MI")==0 || s.compare("mi")==0)
                     ht->strategy=MUTUAL_INFORMATION;
+                else if(s.compare("BRIEF")==0 || s.compare("brief")==0)
+                    ht->strategy=BRIEF;
                 else
                     return errorMessage(p+1, "Invalid strategy: " + s);
             } else
@@ -279,6 +281,57 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             }
             // Store heuristic
             heuristicTypes.push_back(ht);
+        }
+        else if(!strncmp(argv[p], "-bp", 3) || !strncmp(argv[p], "-BP", 3))
+        {
+            heuristicType* ht = heuristicTypes[0];
+            try {
+                ht->numberPairs = atoi(argv[p+1]);
+            }
+            catch (const std::invalid_argument& ia) {
+                cerr << "Invalid argument: " << ia.what() << '\n';
+                return errorMessage(p+1, "Number of pairs is a integer, example: -bp 1000\n");
+            }
+            p++;
+        }
+        else if(!strncmp(argv[p], "-blt", 4) || !strncmp(argv[p], "-BLT", 4))
+        {
+            heuristicType* ht = heuristicTypes[0];
+            try {
+                ht->lowThreshold = atof(argv[p+1]);
+            }
+            catch (const std::invalid_argument& ia) {
+                cerr << "Invalid argument: " << ia.what() << '\n';
+                return errorMessage(p+1, "Low threshold is a float between 0 and 0.99, example: -blt 0.55\n");
+            }
+            if (ht->lowThreshold >= 1 || ht->lowThreshold < 0){
+                return errorMessage(p+1, "Low threshold is a float between 0 and 0.99, example: -blt 0.55\n");
+            }
+            p++;
+        }
+        else if(!strncmp(argv[p], "-bmt", 4) || !strncmp(argv[p], "-BMT", 4))
+        {
+            heuristicType* ht = heuristicTypes[0];
+            try {
+                ht->multiplierThreshold = atof(argv[p+1]);
+            }
+            catch (const std::invalid_argument& ia) {
+                cerr << "Invalid argument: " << ia.what() << '\n';
+                return errorMessage(p+1, "Multiplier threshold is a float, example: -bmt 10.5\n");
+            }
+            p++;
+        }
+        else if(!strncmp(argv[p], "-bm", 4) || !strncmp(argv[p], "-BM", 4))
+        {
+            heuristicType* ht = heuristicTypes[0];
+            try {
+                ht->margin = atoi(argv[p+1]);
+            }
+            catch (const std::invalid_argument& ia) {
+                cerr << "Invalid argument: " << ia.what() << '\n';
+                return errorMessage(p+1, "Margin is a integer, example: -bmt 10\n");
+            }
+            p++;
         }
         else
             p++;

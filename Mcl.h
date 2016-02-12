@@ -17,6 +17,9 @@ class MCL;
 #include "densityheuristic.h"
 #include "colorheuristic.h"
 #include "miheuristic.h"
+#include "BriefHeuristic.h"
+
+#include <omp.h>
 
 typedef struct{
     Pose p;

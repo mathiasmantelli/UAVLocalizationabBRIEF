@@ -37,6 +37,7 @@ enum STRATEGY{
     FEATURE_MATCHING,
     SIFT_MCL,
     HISTOGRAM_MATCHING,
+    BRIEF
 };
 
 class Heuristic

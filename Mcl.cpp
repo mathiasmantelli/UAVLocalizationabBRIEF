@@ -42,8 +42,8 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     cachedMaps(cMaps),
     globalMaps(gMaps)
 {
-
-    numParticles = 70000;
+//    numParticles = 70000;
+    numParticles = 20000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
@@ -623,13 +623,21 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
 {
     int count = 0;
 
-    for(int i=0;i<particles.size();++i)
-    {
+    double t = (double)cv::getTickCount();
+
+    //if brief heuristic calculate the binnary sequence of drone image
+    if(heuristics[0]->getType() == BRIEF){
+        BriefHeuristic* bh = (BriefHeuristic*) heuristics[0];
+        bh->updateDroneDescriptor(z_robot);
+    }
+
+    #pragma omp parallel for num_threads(8)
+    for(int i=0;i<particles.size();i++){
         int x=round(particles[i].p.x);
         int y=round(particles[i].p.y);
 
         // check if particle is not valid (unknown or obstacle)
-        if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING && heuristics[0]->getType() != SIFT_MCL)
+        if(heuristics[0]->getType() != BRIEF && heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING && heuristics[0]->getType() != SIFT_MCL)
             if(!cachedMaps[0]->isKnown(x,y) || cachedMaps[0]->isObstacle(x,y)){
                 particles[i].w = 0.0;
                 count++;
@@ -647,10 +655,22 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
         for(int l=0;l<heuristics.size();++l)
         {
             Heuristic* h = heuristics[l];
-            int mapID = selectMapID(h->getColorDifference());
+            //int mapID = selectMapID(h->getColorDifference());
+            int mapID = 0;
 
             switch(h->getType())
             {
+                case BRIEF:
+                {
+                    BriefHeuristic* bh = (BriefHeuristic*) heuristics[l];
+                    prob = bh->calculateValue2(particles[i].p, &globalMaps[0]);
+                    prob-=bh->lowThreshold;
+                    prob*=bh->multiplierThreshold;
+                    if(prob>1) prob=1;
+                    else if(prob<0) prob=0;
+                    prob*=prob;
+                    break;
+                }
                 case SSD:
                 {
                     cv::Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[0]);
@@ -762,6 +782,10 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
 
         particles[i].w = prob;
     }
+
+
+    t = (double)cv::getTickCount() - t;
+    cout << endl << "Particles calculated in: " << (t*1000./cv::getTickFrequency())/1000 << "s" << endl;
 
     cout << "Matei: " << count << " partículas." << endl;
 
@@ -1209,6 +1233,11 @@ void MCL::prepareWeighting(cv::Mat &z)
         {
         case SSD:
             break;
+        case BRIEF:
+            {
+            BriefHeuristic* ch = (BriefHeuristic*) heuristics[c];
+            break;
+            }
         case COLOR_ONLY:
             {
             ColorHeuristic* ch = (ColorHeuristic*) heuristics[c];
@@ -1225,11 +1254,6 @@ void MCL::prepareWeighting(cv::Mat &z)
                                  &frameColorConverted[mapID]);
             break;
             }
-//        case UNSCENTED_DENSITY:
-//            {
-
-//            break;
-//            }
         case DENSITY:
         case ENTROPY:
             {

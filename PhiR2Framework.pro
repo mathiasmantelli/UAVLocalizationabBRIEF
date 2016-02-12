@@ -4,6 +4,9 @@ CONFIG -= qt
 
 CONFIG   -= app_bundle
 QMAKE_CXXFLAGS += -std=c++0x
+QMAKE_CFLAGS_RELEASE += -fopenmp
+QMAKE_CXXFLAGS += -fopenmp
+QMAKE_LFLAGS += -fopenmp
 
 SOURCES += \
     GlutClass.cpp \
@@ -26,7 +29,8 @@ SOURCES += \
     Heuristic.cpp \
     miheuristic.cpp \
     MeanShiftHeuristic.cpp \
-    SiftHeuristic.cpp
+    SiftHeuristic.cpp \
+    BriefHeuristic.cpp
 
 OTHER_FILES += \
     CONTROLE.txt
@@ -53,7 +57,8 @@ HEADERS += \
     colorheuristic.h \
     miheuristic.h \
     MeanShiftHeuristic.h \
-    SiftHeuristic.h
+    SiftHeuristic.h \
+    BriefHeuristic.h
 
 INCLUDEPATH += /usr/local/Aria/include
 INCLUDEPATH += -I/usr/local/include/opencv2
