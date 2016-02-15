@@ -138,52 +138,121 @@ void ColorHeuristic::setTestedColor(int x, int y, cv::Mat *image) // receives rg
 UnscentedColorHeuristic::UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar):
     ColorHeuristic(s,id,cd,limiar)
 {
-    baselineColors.resize(5);
+    baselineColors.resize(45);
     delta=10;
+    deltax = 40;
+    deltay = 40;
 }
 
 double UnscentedColorHeuristic::calculateValue(int x, int y, Pose p, cv::Mat *image, cv::Mat *map)
 {
+
     int i,j;
-    vector<double> vals(5);
+    int auxX, auxY;
+    int cont = 0;
+    vector<double> vals;
 
-    i=x;
-    j=y;
-    vals[0]=computeDiffColor(i,j,0,image,map);
+//    float theta = p.theta*-1-1.5708;
 
-    i=x+delta*cos(p.theta);
-    j=y+delta*sin(p.theta);
-    vals[1]=computeDiffColor(i,j,1,image,map);
+//    cv::Mat rot = (cv::Mat_<double>(2,2) << cos(theta), -sin(theta), sin(theta), cos(theta));
+//    cv::Point trans = cv::Point(0, 0);
 
-    i=x+delta*cos(p.theta+M_PI/2);
-    j=y+delta*sin(p.theta+M_PI/2);
-    vals[2]=computeDiffColor(i,j,2,image,map);
+    for(int cx = -1; cx <=1; cx++){
+//        cout<<"TESTE"<<endl;
+        for(int cy = -1; cy <=1; cy++){
 
-    i=x+delta*cos(p.theta+M_PI);
-    j=y+delta*sin(p.theta+M_PI);
-    vals[3]=computeDiffColor(i,j,3,image,map);
+            auxX=x+(cx*deltax*3);
+            auxY=y+(cy*deltay*3);
 
-    i=x+delta*cos(p.theta+3*M_PI/2);
-    j=y+delta*sin(p.theta+3*M_PI/2);
-    vals[4]=computeDiffColor(i,j,4,image,map);
+//            cv::Point result = transform_rotation(cv::Point(auxX, auxY), rot, trans);
+            i = auxX;
+            j = auxY;
 
+            vals.push_back(computeDiffColor(i,j,cont,image,map));
+            cont++;
+            i = auxX+deltax*cos(p.theta);
+            j=auxY+deltay*sin(p.theta);
+
+            vals.push_back(computeDiffColor(i,j,cont,image,map));
+            cont++;
+            i = auxX+deltax*cos(p.theta+M_PI/2);
+            j=auxY+deltay*sin(p.theta+M_PI/2);
+
+            vals.push_back(computeDiffColor(i,j,cont,image,map));
+            cont++;
+            i = auxX+deltax*cos(p.theta+M_PI);
+            j=auxY+deltay*sin(p.theta+M_PI);
+
+            vals.push_back(computeDiffColor(i,j,cont,image,map));
+            cont++;
+            i = auxX+deltax*cos(p.theta+3*M_PI/2);
+            j=auxY+deltay*sin(p.theta+3*M_PI/2);
+
+            vals.push_back(computeDiffColor(i,j,cont,image,map));
+            cont++;
+        }
+    }
     double mean=0.0;
-    for(int k=0;k<5;k++)
-        mean += vals[k];
-    mean /= 5;
+    int wrong = 0;
+    for(int k=0;k<vals.size();k++)
+        if(vals[k]!=HEURISTIC_UNDEFINED)
+            mean += vals[k];
+        else
+            wrong++;
+    mean /= (vals.size()-wrong);
+
+//    double prob=1.0;
+//    /// Gaussian weighing
+//    for(int k=0;k<vals.size();k++)
+
+//    if(diff!=HEURISTIC_UNDEFINED)
+//        prob *= 1.0/(sqrt(2*M_PI*9))*exp(-0.5*(pow(vals[k],2)/9));
+
+//    else
+//        prob *= 1.0/(numParticles);
 
     return mean;
 }
 
+
 void UnscentedColorHeuristic::setBaselineColors(int x, int y, cv::Mat *image)
 {
     int i,j;
+    int auxX, auxY;
+    int cont = 0;
     double theta = M_PI/2;
 
+    for(int cx = -1; cx <= 1; cx++){
+        for(int cy = -1; cy <= 1; cy++){
+            auxX=x+(cx*deltax*3);
+            auxY=y+(cy*deltay*3);
+            i = auxX;
+            j = auxY;
+            baselineColors[cont] = getValuefromPixel(i,j,image);
+            cont++;
+            i=auxX+deltax*cos(theta);
+            j=auxY+deltay*sin(theta);
+            baselineColors[cont] = getValuefromPixel(i,j,image);
+            cont++;
+            i=auxX+deltax*cos(theta+M_PI/2);
+            j=auxY+deltay*sin(theta+M_PI/2);
+            baselineColors[cont] = getValuefromPixel(i,j,image);
+            cont++;
+            i=auxX+deltax*cos(theta+M_PI);
+            j=auxY+deltay*sin(theta+M_PI);
+            baselineColors[cont] = getValuefromPixel(i,j,image);
+            cont++;
+            i=auxX+deltax*cos(theta+3*M_PI/2);
+            j=auxY+deltay*sin(theta+3*M_PI/2);
+            baselineColors[cont] = getValuefromPixel(i,j,image);
+            cont++;
+        }
+    }
+    /*
     // get color as double values
     i=x;
     j=y;
-    baselineColors[0] = getValuefromPixel(i,j,image);
+    baselineColors[cont] = getValuefromPixel(i,j,image);
 
     i=x+delta*cos(theta);
     j=y+delta*sin(theta);
@@ -200,7 +269,7 @@ void UnscentedColorHeuristic::setBaselineColors(int x, int y, cv::Mat *image)
     i=x+delta*cos(theta+3*M_PI/2);
     j=y+delta*sin(theta+3*M_PI/2);
     baselineColors[4] = getValuefromPixel(i,j,image);
-
+*/
     /*(2*getValuefromPixel(x,y,image)
             +getValuefromPixel(x-1,y,image)
             +getValuefromPixel(x+1,y,image)
@@ -255,4 +324,17 @@ double UnscentedColorHeuristic::computeDiffColor(int x, int y, int whichPoint, c
         diff=convert.DeltaECIE1976(baselineColors[whichPoint],testedColor);
     }
     return diff/limiar;
+}
+
+cv::Point UnscentedColorHeuristic::transform_rotation(cv::Point pt, cv::Mat rot, cv::Point trans){
+    cv::Mat res(1,2,CV_64F);
+
+    res.at<double>(0,0)=pt.x;
+    res.at<double>(0,1)=pt.y;
+
+    cv::Mat dst = res*rot;
+
+    cv::Point point = cv::Point(dst.at<double>(0,0)+trans.x,dst.at<double>(0,1)+trans.y);
+
+    return point;
 }

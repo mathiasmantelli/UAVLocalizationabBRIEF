@@ -105,7 +105,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     }else{
         particleLog.open(lName.c_str(), std::fstream::out);
     }
-    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
+    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleErrorOk meanParticleStdev meanErrorOk stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
 
     // Check if must remove duplicates in resampling
     removeDuplicates=false;
@@ -441,7 +441,7 @@ void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
         normalizer+=particles[i].w;
         NEFF+=particles[i].w*particles[i].w;
     }
-
+    cout << "Normalizer data:" << normalizer << endl;
     NEFF = 1/NEFF;
 
     if(normalizer==0.0)
@@ -453,7 +453,8 @@ void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
     {
         meanPX += particles[i].p.x*particles[i].w;
         meanPY += particles[i].p.y*particles[i].w;
-        normalizer+=particles[i].w;
+        //normalizer+=particles[i].w;
+        //normalizer++;
     }
 
     meanPX  /= normalizer;
@@ -644,7 +645,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                 continue;
             }
 
-        double varColor = pow(1.0, 2.0); // normalized gaussian
+        double varColor = pow(2.0, 2.0); // normalized gaussian
         double varDensity = pow(1.0f,2.0); //10%
         double varEntropy = pow(1.0f,2.0); //10%
         double varMI = pow(1.0,2.0); //10%
@@ -691,13 +692,13 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     if(diff!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
                     else
-                        prob *= 1.0/(numParticles);
+                      prob *= 0.0000000000000000000001;
                     break;
                 }
                 case UNSCENTED_COLOR:
                 {
                     UnscentedColorHeuristic* uch = (UnscentedColorHeuristic*) heuristics[l];
-                    if(x<uch->delta || x>=globalMaps[mapID].cols-uch->delta || y<uch->delta || y>=globalMaps[mapID].rows-uch->delta){
+                    if(x<uch->deltax*4 || x>=globalMaps[mapID].cols-uch->deltax*4 || y<uch->deltay*4 || y>=globalMaps[mapID].rows-uch->deltay*4){
                         prob = 0;
                         break;
                     }
@@ -708,7 +709,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     if(diff!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
                     else
-                        prob *= 1.0/(numParticles);
+                        prob *= 0.0000000000000000000001;//1.0/(numParticles);
                     break;
                 }
                 case DENSITY:
@@ -1100,7 +1101,19 @@ void MCL::resampling()
 
 //    cout << " size nextGeneration " << nextGeneration.size();
 
+
+
     particles = nextGeneration;
+
+//    double sumweights=0.0;
+
+//    for(int m=0; m<particles.size(); m++){
+//           sumweights+= particles[m].w;
+//    }
+//    for(int m=0; m<particles.size(); m++){
+//           particles[m].w= particles[m].w/sumweights;
+//    }
+
 }
 
 ////////////////////////
