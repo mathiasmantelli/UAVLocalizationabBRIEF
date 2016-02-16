@@ -3,7 +3,7 @@
 BriefHeuristic::BriefHeuristic(STRATEGY s, int id, int cd, double l):Heuristic(s,id,cd,l)
 {
     totalPairs = 1000;
-    lowThreshold = 0.55;
+    lowThreshold = 0.5;
     multiplierThreshold = 4;
     margin = 10;
 }
@@ -32,11 +32,11 @@ void BriefHeuristic::updateDroneDescriptor(cv::Mat& drone){
     for(int c=0;c<pairs.size();c++){
         vec3 color1(getValuefromPixel(pairs[c][0].x,pairs[c][0].y,&drone));
         vec3 color2(getValuefromPixel(pairs[c][1].x,pairs[c][1].y,&drone));
-        if(color1.x>color2.x) bin.push_back(1);
+        if(color1.r>color2.r) bin.push_back(1);
         else bin.push_back(0);
-        if(color1.y>color2.y) bin.push_back(1);
+        if(color1.g>color2.g) bin.push_back(1);
         else bin.push_back(0);
-        if(color1.z>color2.z) bin.push_back(1);
+        if(color1.b>color2.b) bin.push_back(1);
         else bin.push_back(0);
 
     }
@@ -47,38 +47,49 @@ void BriefHeuristic::updateDroneDescriptor(cv::Mat& drone){
 double BriefHeuristic::calculateValue2(Pose p, cv::Mat *map){
     vector<int> bin;
 
-    float theta = p.theta*-1-1.5708;
-
-    cv::Mat rot = (cv::Mat_<double>(2,2) << cos(theta), -sin(theta), sin(theta), cos(theta));
-    cv::Point trans = cv::Point(p.x, p.y);
+    float theta = p.theta*(-1)-1.5708;
 
     int xPad = width/2;
     int yPad = height/2;
 
     for(int c=0;c<pairs.size();c++){
-        cv::Point point = transform (cv::Point(pairs[c][0].x-xPad, pairs[c][0].y-yPad), rot, trans, map->cols, map->rows);
-        cv::Vec3b color = map->at<cv::Vec3b>(point.y, point.x);
-        double r = color[0];
-        double g = color[1];
-        double b = color[2];
-        vec3 color1(r, g, b);
-        point = transform (cv::Point(pairs[c][1].x-xPad, pairs[c][1].y-yPad), rot, trans, map->cols, map->rows);
-        color = map->at<cv::Vec3b>(point.y, point.x);
-        r = color[0];
-        g = color[1];
-        b = color[2];
-        vec3 color2(r, g, b);
-        if(color1.x>color2.x) bin.push_back(1);
-        else bin.push_back(0);
-        if(color1.y>color2.y) bin.push_back(1);
-        else bin.push_back(0);
-        if(color1.z>color2.z) bin.push_back(1);
-        else bin.push_back(0);
+        cv::Point point1 = cv::Point(((pairs[c][0].x-xPad)*cos(theta)+(pairs[c][0].y-yPad)*sin(theta))+p.x, ((pairs[c][0].x-xPad)*-sin(theta)+(pairs[c][0].y-yPad)*cos(theta))+p.y);
+        if(point1.x < 0 || point1.x >= map->cols || point1.y < 0 || point1.y >= map->rows){
+            bin.push_back(HEURISTIC_UNDEFINED_INT);
+            bin.push_back(HEURISTIC_UNDEFINED_INT);
+            bin.push_back(HEURISTIC_UNDEFINED_INT);
+        }
+        else{
+            cv::Point point2 = cv::Point(((pairs[c][1].x-xPad)*cos(theta)+(pairs[c][1].y-yPad)*sin(theta))+p.x, ((pairs[c][1].x-xPad)*-sin(theta)+(pairs[c][1].y-yPad)*cos(theta))+p.y);
+            if(point2.x < 0 || point2.x >= map->cols || point2.y < 0 || point2.y >= map->rows){
+                bin.push_back(HEURISTIC_UNDEFINED_INT);
+                bin.push_back(HEURISTIC_UNDEFINED_INT);
+                bin.push_back(HEURISTIC_UNDEFINED_INT);
+            }
+            else{
+                cv::Vec3b color = map->at<cv::Vec3b>(point1.y, point1.x);
+                double r = color[0];
+                double g = color[1];
+                double b = color[2];
+                vec3 color1(r, g, b);
+                color = map->at<cv::Vec3b>(point2.y, point2.x);
+                r = color[0];
+                g = color[1];
+                b = color[2];
+                vec3 color2(r, g, b);
+                if(color1.r>color2.r) bin.push_back(1);
+                else bin.push_back(0);
+                if(color1.g>color2.g) bin.push_back(1);
+                else bin.push_back(0);
+                if(color1.b>color2.b) bin.push_back(1);
+                else bin.push_back(0);
+            }
+        }
     }
 
     int diff = 0;
     for(int i= 0; i < droneDescriptor.size(); i++){
-        if(bin[i] != droneDescriptor[i]) diff++;
+        if(bin[i] == HEURISTIC_UNDEFINED_INT || bin[i] != droneDescriptor[i]) diff++;
     }
     return (float)((totalPairs*3)-diff)/(float)(totalPairs*3);
 }

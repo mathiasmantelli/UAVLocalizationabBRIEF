@@ -48,6 +48,8 @@ double ColorHeuristic::calculateValue(int x, int y, cv::Mat *image, cv::Mat *map
     default:
         diff=convert.DeltaECIE1976(baselineColor,testedColor);
     }
+    //cout << "Testing limiar: " << limiar << "     " << diff << endl;
+
     return diff/limiar;
 }
 
@@ -161,8 +163,8 @@ double UnscentedColorHeuristic::calculateValue(int x, int y, Pose p, cv::Mat *im
 //        cout<<"TESTE"<<endl;
         for(int cy = -1; cy <=1; cy++){
 
-            auxX=x+(cx*deltax*3);
-            auxY=y+(cy*deltay*3);
+            auxX=x+(cx*deltax*3*cos(p.theta+M_PI/2));
+            auxY=y+(cy*deltay*3*sin(p.theta+M_PI/2));
 
 //            cv::Point result = transform_rotation(cv::Point(auxX, auxY), rot, trans);
             i = auxX;

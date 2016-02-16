@@ -663,13 +663,19 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
             {
                 case BRIEF:
                 {
+                    double aprob=1.0;
                     BriefHeuristic* bh = (BriefHeuristic*) heuristics[l];
-                    prob = bh->calculateValue2(particles[i].p, &globalMaps[0]);
-                    prob-=bh->lowThreshold;
-                    prob*=bh->multiplierThreshold;
-                    if(prob>1) prob=1;
-                    else if(prob<0) prob=0;
-                    prob*=prob;
+                    if(x<0 || x>=globalMaps[mapID].cols || y<0 || y>=globalMaps[mapID].rows){
+                        prob=0;
+                    }
+                    else{
+                        aprob = bh->calculateValue2(particles[i].p, &globalMaps[0]);
+                        aprob-=bh->lowThreshold;
+                        aprob*=bh->multiplierThreshold;
+                    }
+                    if(aprob>1) prob=1;
+                    else if(aprob<0) aprob=0.0;
+                    prob*=aprob;
                     break;
                 }
                 case SSD:
@@ -690,9 +696,14 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
 
                     /// Gaussian weighing
                     if(diff!=HEURISTIC_UNDEFINED)
-                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                        //prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                        prob *= 1.0/cosh(pow(diff,4.0));//(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+
                     else
-                      prob *= 0.0000000000000000000001;
+                      prob *= 0.00000000000000000000000000000000000000000001;
+//                    if(prob<=0.001){
+//                        cout << " " << diff << "   " << prob << endl;
+//                    }
                     break;
                 }
                 case UNSCENTED_COLOR:
@@ -707,9 +718,11 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
 
                     /// Gaussian weighing
                     if(diff!=HEURISTIC_UNDEFINED)
-                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                        prob *= 1.0/cosh(pow(diff,4.0));//(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+
+                        //prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
                     else
-                        prob *= 0.0000000000000000000001;//1.0/(numParticles);
+                        prob *= 0.00000000000000000000000000000000000000000001;//1.0/(numParticles);
                     break;
                 }
                 case DENSITY:
@@ -802,7 +815,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
     if(sumWeights==0.0)
     {
         for(int i=0; i<particles.size(); i++) {
-            if(heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING)
+            if(heuristics[0]->getType() != BRIEF && heuristics[0]->getType() != SSD && heuristics[0]->getType() != COLOR_ONLY && heuristics[0]->getType() != UNSCENTED_COLOR && heuristics[0]->getType() != HISTOGRAM_MATCHING)
             {
                 // check if particle is valid (known and not obstacle)
                 if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
