@@ -22,12 +22,6 @@
 //////////////////////
 // Métodos Públicos //
 //////////////////////
-/// \brief MCL::MCL
-/// \param hVector
-/// \param cMaps
-/// \param gMaps
-/// \param initial
-///
 
 /// // TRAJ4 -s color diff-intensity 36  -s density diff-intensity 35.640406 circular 10 -s density diff-cie2000 13.889990 inverted 10
 /// // TRAJ2 -s color diff-cie2000 16    -s density diff-intensity 35.640406 circular 10 -s density diff-cie2000 13.889990 inverted 10
@@ -43,11 +37,13 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     globalMaps(gMaps)
 {
 //    numParticles = 70000;
-    numParticles = 20000;
+    numParticles = 500;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
     lastOdometry.theta=0.0;
+
+    starting=true;
 
     particles.resize(numParticles);
 
@@ -105,7 +101,7 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     }else{
         particleLog.open(lName.c_str(), std::fstream::out);
     }
-    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleErrorOk meanParticleStdev meanErrorOk stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
+//    particleLog << "trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleErrorOk meanParticleStdev meanErrorOk stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
 
     // Check if must remove duplicates in resampling
     removeDuplicates=false;
@@ -362,8 +358,131 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glutPostRedisplay();
 }
 
+bool MCL::initialRun(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose &real, double lastTotalElapsed)
+{
+    // Create different versions of the input image
+    createColorVersions(z);
+
+    realPose = real;
+    realPath.push_back(realPose);
+
+//    cout << "Starting MCL" << endl;
+
+    double wElapsedTime, totalElapsedTime=0.0;
+    struct timeval tstart, tend, tstartW, tendW;
+
+    // Start counting the elapsed time of this iteration
+    gettimeofday(&tstart, NULL);
+
+    sampling(u,is_u_reliable);
+
+    gettimeofday(&tstartW, NULL);
+    prepareWeighting(z);
+    weighting(z,u);
+    gettimeofday(&tendW, NULL);
+
+    double sumWeights = 0.0;
+    for(int i=0; i<particles.size(); i++)
+        sumWeights += particles[i].w;
+
+
+    if(sumWeights!=0)
+        resampling();
+
+    lastOdometry = u;
+
+    // Stop counting the elapsed time of this SLAM iteration
+    gettimeofday(&tend, NULL);
+
+    // Compute and print the elapsed time
+    if (tstart.tv_usec > tend.tv_usec) {
+        tend.tv_usec += 1000000;
+        tend.tv_sec--;
+    }
+    if (tstartW.tv_usec > tendW.tv_usec) {
+        tendW.tv_usec += 1000000;
+        tendW.tv_sec--;
+    }
+
+    wElapsedTime = ((double)tendW.tv_sec - (double)tstartW.tv_sec) + ((double)tendW.tv_usec - (double)tstartW.tv_usec)/1000000.0;
+    totalElapsedTime = ((double)tend.tv_sec - (double)tstart.tv_sec) + ((double)tend.tv_usec - (double)tstart.tv_usec)/1000000.0;
+    cout << "PARTICLES:" << numParticles
+         << " total elapsed time MCL: " << totalElapsedTime << " weighting elapsed time MCL: " << wElapsedTime
+         << " ratio:" << wElapsedTime/totalElapsedTime << endl;
+
+//    particleLog  <<  "elapsed time MCL: " << elapsedTime << endl;
+
+    if(wElapsedTime>1.0){
+        numParticles = (1.0-lastTotalElapsed)/(totalElapsedTime-lastTotalElapsed)*(numParticles/2) + numParticles/2;
+
+        particles.resize(numParticles);
+        cout << "FINAL NUMPARTICLES " << numParticles << endl;
+
+        particleLog << "# NumParticles " << numParticles << endl;
+        particleLog << "# trueX trueY meanPX meanPY closestx cloesty closestTh closestw meanParticleErrorOk meanParticleStdev meanErrorOk stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
+
+        std::default_random_engine generator;
+    //    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+    //    std::uniform_real_distribution<double> randomY(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+        std::uniform_real_distribution<double> randomX(0.0,globalMaps[0].cols);
+        std::uniform_real_distribution<double> randomY(0.0,globalMaps[0].rows);
+        std::uniform_real_distribution<double> randomTh(-M_PI,M_PI);
+
+        // generate initial set
+        for(int i=0; i<particles.size(); i++){
+
+            bool valid = false;
+            do{
+
+                // sample particle pose
+                particles[i].p.x = randomX(generator);
+                particles[i].p.y = randomY(generator);
+                particles[i].p.theta = randomTh(generator);
+                    valid = true;
+
+            }while(!valid);
+        }
+
+        starting=false;
+    }else{
+
+        numParticles*=2;
+        particles.resize(numParticles);
+
+        std::default_random_engine generator;
+    //    std::uniform_real_distribution<double> randomX(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+    //    std::uniform_real_distribution<double> randomY(0.25*globalMaps[0].cols,0.75*globalMaps[0].cols);
+        std::uniform_real_distribution<double> randomX(0.0,globalMaps[0].cols);
+        std::uniform_real_distribution<double> randomY(0.0,globalMaps[0].rows);
+        std::uniform_real_distribution<double> randomTh(-M_PI,M_PI);
+
+        // generate initial set
+        for(int i=0; i<particles.size(); i++){
+
+            bool valid = false;
+            do{
+
+                // sample particle pose
+                particles[i].p.x = randomX(generator);
+                particles[i].p.y = randomY(generator);
+                particles[i].p.theta = randomTh(generator);
+                    valid = true;
+
+            }while(!valid);
+        }
+
+        initialRun(u,is_u_reliable,z,time,real,totalElapsedTime);
+    }
+
+    return true;
+
+}
+
 bool MCL::run(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose& real)
 {
+    if(starting)
+        initialRun(u,is_u_reliable,z,time,real,0.0);
+
 //    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    if(delta<1.0)
 //        return false;
@@ -559,8 +678,8 @@ void MCL::writeErrorLogFile(double trueX, double trueY, double trueTh)
     varAngleError = stdevAngleError*stdevAngleError;
 
     //particleLog << "trueX trueY meanPX meanPY closestx cloesty closestw meanParticleError meanParticleStdev meanError stdevError trueTh meanAngle angleStdev angleError stdevAngleError NEFF elapsedTime\n";
-    particleLog  << "Standard Measurements: " << trueX <<  " " << trueY << " " << " " << meanPX << " " << meanPY << " "
-                 <<  closest.p.x << " " << closest.p.y << " " << closest.p.theta << " " << closest.w << " "
+    particleLog  << trueX <<  " " << trueY << " " << " " << meanPX << " " << meanPY << " "
+                 << closest.p.x << " " << closest.p.y << " " << closest.p.theta << " " << closest.w << " "
                  << meanParticleError <<  " " << meanParticleStdev  << " " << meanError << " " << stdevError << " "
                  << trueTh << " " << meanAngle << " " << angleStdev << " " << angleError << " " << stdevAngleError << " "
                  << NEFF << " " << elapsedTime << endl;
@@ -593,6 +712,7 @@ void MCL::sampling(Pose &u, bool reliable)
 //    cout << "Odom Pose " << odomPose << endl;
 
     if(reliable){
+        #pragma omp parallel for num_threads(8)
         for(int i=0; i<particles.size(); i++){
             particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
             particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
@@ -605,6 +725,7 @@ void MCL::sampling(Pose &u, bool reliable)
         }
     }else{
         cout << "UNRELIABLE!!!" << endl;
+        #pragma omp parallel for num_threads(8)
         for(int i=0; i<particles.size(); i++){
             particles[i].p.x += cos(particles[i].p.theta)*u.x - sin(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
             particles[i].p.y += sin(particles[i].p.theta)*u.x + cos(particles[i].p.theta)*u.y + randomValue(generator)*10.0;
@@ -625,12 +746,6 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
     int count = 0;
 
     double t = (double)cv::getTickCount();
-
-    //if brief heuristic calculate the binnary sequence of drone image
-    if(heuristics[0]->getType() == BRIEF){
-        BriefHeuristic* bh = (BriefHeuristic*) heuristics[0];
-        bh->updateDroneDescriptor(z_robot);
-    }
 
     #pragma omp parallel for num_threads(8)
     for(int i=0;i<particles.size();i++){
@@ -656,8 +771,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
         for(int l=0;l<heuristics.size();++l)
         {
             Heuristic* h = heuristics[l];
-            //int mapID = selectMapID(h->getColorDifference());
-            int mapID = 0;
+            int mapID = selectMapID(h->getColorDifference());
 
             switch(h->getType())
             {
@@ -669,12 +783,13 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                         prob=0;
                     }
                     else{
-                        aprob = bh->calculateValue2(particles[i].p, &globalMaps[0]);
+                        aprob = bh->calculateValue2(particles[i].p, &globalMaps[mapID]);
                         aprob-=bh->lowThreshold;
                         aprob*=bh->multiplierThreshold;
                     }
                     if(aprob>1) prob=1;
                     else if(aprob<0) aprob=0.0;
+                    aprob*=aprob;
                     prob*=aprob;
                     break;
                 }
@@ -863,203 +978,6 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
     cout << "NEFF: " << neff << endl;
 }
 
-
-//void MCL::weightingColor()
-//{
-//    double sumWeights = 0.0;
-//    double var = pow(3.0, 2.0); // normalized gaussian
-
-
-//    for(int i=0;i<particles.size();++i)
-//    {
-//        double x = particles[i].p.x;
-//        double y = particles[i].p.y;
-//        double prob=1.0;
-
-//        for(int s=0;s<colorHeuristics.size();++s)
-//        {
-
-//            ColorHeuristic* h = colorHeuristics[s];
-//            /// compute color difference
-//            int mapID = selectMapID(h->getColorDifference());
-//            double diff  = h->calculateValue(int(round(x)),int(round(y)),&globalMaps[mapID]);
-
-//            /// Gaussian weighing
-//            if(diff!=HEURISTIC_UNDEFINED)
-//                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow(diff,2)/var));
-//            else
-//                prob *= 1.0/(numParticles);
-//        }
-//        // sum weights
-//        particles[i].w *= prob;
-//        sumWeights += particles[i].w;
-//    }
-
-//    //normalize particles
-//    if(sumWeights!=0.0)
-//        for(int i=0; i<particles.size(); i++)
-//            particles[i].w /= sumWeights;
-//    else
-//        for(int i=0; i<particles.size(); i++)
-//            particles[i].w = 1.0/numParticles;
-//}
-
-//void MCL::weightingDensity(vector<int> &densities, Pose &u, vector<double> &gradients)
-//{
-//    double sumWeights = 0.0;
-//    double var = pow(51.5,2.0); //10% of 255
-
-//    // Compute min and max density value (for some reason)
-//    int minVal = INT_MAX;
-//    int maxVal = INT_MIN;
-//    for(int i=0; i<particles.size(); i++){
-//        int x=round(particles[i].p.x);
-//        int y=round(particles[i].p.y);
-//        for(int l=0; l<cachedMaps.size(); ++l) {
-//            if(cachedMaps[l]->getHeuristicValue(x,y)<minVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-//                minVal = cachedMaps[l]->getHeuristicValue(x,y);
-//            if(cachedMaps[l]->getHeuristicValue(x,y)>maxVal && cachedMaps[l]->getHeuristicValue(x,y)!= HEURISTIC_UNDEFINED_INT )
-//                maxVal = cachedMaps[l]->getHeuristicValue(x,y);
-//        }
-//    }
-//    cout << "MIN DENSITY: " << minVal << "  MAX DENSITY: " << maxVal << endl;
-////    for(int j=0;j<densities.size();++j)
-////        cout << "HEURISTIC: " << densities[j] << " ";
-////    cout << endl;
-
-//    int count = 0;
-////    vector<int> acounter(densities.size(),0);
-//    for(int i=0; i<particles.size(); i++){
-//        // check if particle is valid (known and not obstacle)
-//        if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-//           cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)){
-//            particles[i].w = 0.0;
-//            count++;
-//            continue;
-//        }
-
-//        int x=round(particles[i].p.x);
-//        int y=round(particles[i].p.y);
-
-//        // Compute likelihood of each density
-//        double prob = 1.0;
-//        bool ag = false;
-//        for(int l=0; l<densities.size(); l=l+1) {
-/////*** Filtering using simple 1o 0.5 probability accoding to a threshold ***/
-///// Filter out some density values
-////           if(abs((densities[l]>100?densities[l]:densities[l]) -
-////                   (densityMaps[l]->getHeuristicValue(x,y)>100 ?
-////                    densityMaps[l]->getHeuristicValue(x,y) : 0)) <= 40 || densities[l]==HEURISTIC_UNDEFINED_INT)
-////           {
-///// Unfiltered densities
-////            if(abs(densities[l]-densityMaps[l]->getHeuristicValue(x,y)) <= 10 || densities[l]==HEURISTIC_UNDEFINED_INT){
-////                prob *= 1.0;
-////                count++;
-////            }else{
-////                acounter[l]++;
-////                prob *= 0.5;
-////            }
-
-///// Gaussian weighing
-//            if(densities[l]!=HEURISTIC_UNDEFINED_INT)
-//                prob *= 1.0/(sqrt(2*M_PI*var))*exp(-0.5*(pow((cachedMaps[l]->getHeuristicValue(x,y)-densities[l]),2)/var));
-
-///// Hyperbolic secant^5 weighing
-////            if(densities[l]!=HEURISTIC_UNDEFINED_INT) {
-////                double val = abs(densityMaps[l]->getHeuristicValue(x,y)-densities[l])/150.0;
-////                prob *= (1/cosh(val*val*val*val*val));
-////            }
-
-//            if(densities[l] ==HEURISTIC_UNDEFINED_INT && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED_INT)
-//                    prob *= 1.0/numParticles;
-//        }
-//        particles[i].w = prob;///(double)densities.size();
-//        sumWeights += particles[i].w;
-//    }
-////    cout << "Agressividade: ";
-////    for (int i=0;i<acounter.size();++i)
-////        cout << acounter[i] << " ";
-////    cout << endl;
-
-//    //cout <<  "Entradas: " << count << endl;
-//    //cout << "SumWeights A " << sumWeights << endl;
-
-//    discardInvalidDeltaAngles(u,gradients);
-
-//    sumWeights = 0.0;
-//    for(int i=0; i<particles.size(); i++)
-//        sumWeights += particles[i].w;
-
-//    cout << "SumWeights B " << sumWeights << endl;
-
-//    // Correct zero error
-//    if(sumWeights==0.0)
-//    {
-//        for(int i=0; i<particles.size(); i++) {
-//            // check if particle is valid (known and not obstacle)
-//            if(!cachedMaps[0]->isKnown((int)particles[i].p.x,(int)particles[i].p.y) ||
-//               cachedMaps[0]->isObstacle((int)particles[i].p.x,(int)particles[i].p.y)) {
-//                particles[i].w = 0.0;
-//            }
-//            else {
-//                particles[i].w = 1.0;
-//                sumWeights+=1.0;
-//            }
-//        }
-//    }
-//    cout << "Matei: " << count << " partículas." << endl;
-
-//    count = 0;
-
-//    neff = 0;
-
-//    //normalize particles
-//    if(sumWeights!=0.0)
-//        for(int i=0; i<particles.size(); i++){
-//            particles[i].w /= sumWeights;
-
-//            if(particles[i].w == 0.0)
-//                count++;
-
-//            neff+=pow(particles[i].w,2.0);
-//        }
-//    else {
-//        for(int i=0; i<particles.size(); i++)
-//            particles[i].w = 1.0/numParticles;
-//        neff=numParticles;
-//    }
-//    cout << "Confirmando Matei: " << count << " partículas." << endl;
-//    neff=1.0/neff;
-//    cout << "NEFF: " << neff << endl;
-
-//}
-
-//void MCL::weightingSSD(cv::Mat &z_robot)
-//{
-//    double sumWeights = 0.0;
-
-//    // Evaluate all particles
-//    int count = 0;
-//    int globalMapID = 0;
-
-//    for(int i=0; i<particles.size(); i++){
-//        cv::Mat z_particle = Utils::getRotatedROIFromImage(particles[i].p, z_robot.size(), globalMaps[globalMapID]);
-//        particles[i].w = Utils::matchImages(z_robot,z_particle,CV_TM_CCORR_NORMED);
-//        sumWeights+= particles[i].w;
-////        cv::Mat window;
-////        resize(z_particle,window,cv::Size(0,0),0.2,0.2);
-////        imshow("particle"+to_string(i), window );
-//    }
-
-//    //normalize particles
-//    if(sumWeights!=0.0)
-//        for(int i=0; i<particles.size(); i++)
-//            particles[i].w /= sumWeights;
-//    else
-//        for(int i=0; i<particles.size(); i++)
-//            particles[i].w = 1.0/numParticles;
-//}
-
 void MCL::resampling()
 {
     vector<int> children;
@@ -1243,14 +1161,18 @@ void MCL::prepareWeighting(cv::Mat &z)
                               frameColorConverted[0].rows,
                               CV_8SC3,cv::Scalar(0,0,0));
 
+
     // Compute value at the center of the frame using
-    // appropriate color space
+    // appropriate color space    
     for(int c = 0; c<heuristics.size();++c)
     {
         Heuristic* h = heuristics[c];
 
         // get proper color space
         int mapID = selectMapID(h->getColorDifference());
+
+
+        cout << "Color Difference: "<< h->getColorDifference() << "Color Map: " << mapID << endl;
 
         double val = 0.0;
         double grad = val;
@@ -1261,7 +1183,8 @@ void MCL::prepareWeighting(cv::Mat &z)
             break;
         case BRIEF:
             {
-            BriefHeuristic* ch = (BriefHeuristic*) heuristics[c];
+            BriefHeuristic* bh = (BriefHeuristic*) heuristics[c];
+            bh->updateDroneDescriptor(frameColorConverted[mapID]);
             break;
             }
         case COLOR_ONLY:
@@ -1342,6 +1265,7 @@ void MCL::prepareWeighting(cv::Mat &z)
         }
     }
 }
+
 void MCL::createColorVersions(cv::Mat& imageRGB)
 {
     // RGB

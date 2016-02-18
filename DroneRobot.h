@@ -37,6 +37,8 @@ private:
     pair<Pose, bool> findOdometryUsingECC(cv::Mat &prevImage, cv::Mat &curImage);
     pair<Pose, bool> findOdometry(cv::Mat &prevImage, cv::Mat &curImage);
     pair<Pose, bool> findOdometryUsingFeatures(cv::Mat &prevImage, cv::Mat &curImage, double cT=0.04);
+    pair<Pose,bool> findOdometryUsingICP(cv::Mat& prevImage, cv::Mat& curImage);
+
     void drawMatchedImages(cv::Mat& prevImage, cv::Mat& curImage, const cv::Mat& warp_matrix, const int warp_mode = cv::MOTION_EUCLIDEAN);
 
     void reinitialize();

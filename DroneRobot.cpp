@@ -12,6 +12,10 @@
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/xfeatures2d/nonfree.hpp"
 
+//#include <pcl/io/pcd_io.h>
+//#include <pcl/point_types.h>
+//#include <pcl/registration/icp.h>
+
 DroneRobot::DroneRobot()
 {
 
@@ -151,7 +155,7 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         }
         if(hT->strategy == BRIEF)
         {
-            heur = new BriefHeuristic(BRIEF, 1, 1, 1);
+            heur = new BriefHeuristic(BRIEF, id, hT->colorDifference, hT->threshold);
             if(hT->lowThreshold != -1) ((BriefHeuristic*)heur)->lowThreshold = hT->lowThreshold;
             if(hT->multiplierThreshold != -1) ((BriefHeuristic*)heur)->multiplierThreshold = hT->multiplierThreshold;
             if(hT->margin != -1) ((BriefHeuristic*)heur)->margin = hT->margin;
@@ -1289,6 +1293,50 @@ pair<Pose,bool> DroneRobot::findOdometry(cv::Mat& prevImage, cv::Mat& curImage)
     return odom;
 }
 
+pair<Pose,bool> DroneRobot::findOdometryUsingICP(cv::Mat& prevImage, cv::Mat& curImage)
+{
+
+
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in (new pcl::PointCloud<pcl::PointXYZ>);
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZ>);
+
+//    // Fill in the CloudIn data
+//    cloud_in->width    = set1.size();
+//    cloud_in->height   = 1;
+//    cloud_in->is_dense = false;
+//    cloud_in->points.resize (cloud_in->width * cloud_in->height);
+//    for (size_t i = 0; i < cloud_in->points.size (); ++i)
+//    {
+//      cloud_in->points[i].x = set1[i].x;
+//      cloud_in->points[i].y = set1[i].y;
+//      cloud_in->points[i].z = 0;
+//    }
+
+//    // Fill in the CloudOut data
+//    cloud_out->width    = set2.size();
+//    cloud_out->height   = 1;
+//    cloud_out->is_dense = false;
+//    cloud_out->points.resize (cloud_out->width * cloud_out->height);
+//    for (size_t i = 0; i < cloud_out->points.size (); ++i)
+//    {
+//      cloud_out->points[i].x = set2[i].x;
+//      cloud_out->points[i].y = set2[i].y;
+//      cloud_out->points[i].z = 0;
+//    }
+
+//    pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+//    icp.setInputCloud(cloud_in);
+//    icp.setInputTarget(cloud_out);
+//    pcl::PointCloud<pcl::PointXYZ> Final;
+//    icp.align(Final);
+//    double score = icp.getFitnessScore();
+////    std::cout << "has converged:" << icp.hasConverged() << " score: " << score << std::endl;
+////    std::cout << icp.getFinalTransformation() << std::endl;
+
+//    return score;
+
+}
+
 pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(cv::Mat& prevImage, cv::Mat& curImage, double cT)
 {
     cv::Mat img_1, img_2;
@@ -1297,10 +1345,19 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(cv::Mat& prevImage, cv::Ma
     cvtColor(prevImage, img_2, CV_BGR2GRAY);
     cvtColor(curImage, img_1, CV_BGR2GRAY);
 
+    blur( img_2, img_2, cv::Size(21,21) );
+//    blur( img_2, img_2, cv::Size(21,21) );
+
+
+    cv::Mat canny_img_2;
+    cv::Canny(img_2,canny_img_2,5000,5000,7);
+    imshow("Canny",canny_img_2);
+    cv::waitKey(0);
+
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 
-    cv::Ptr<cv::Feature2D> detector=cv::xfeatures2d::SIFT::create(20000,8,cT);
-    cv::Ptr<cv::Feature2D> extractor=cv::xfeatures2d::SIFT::create(20000,8,cT);
+    cv::Ptr<cv::Feature2D> detector=cv::xfeatures2d::SURF::create();                    //create(20000,8,cT);
+    cv::Ptr<cv::Feature2D> extractor=cv::xfeatures2d::SURF::create();        //create(20000,8,cT);
 
     std::vector<cv::KeyPoint> keypoints_1, keypoints_2;
     cv::Mat descriptors_1, descriptors_2;

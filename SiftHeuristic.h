@@ -23,7 +23,6 @@ namespace bgi = boost::geometry::index;
 
 typedef bg::model::point<float, 2, bg::cs::cartesian> pointRT;
 typedef bg::model::box<pointRT> boxRT;
-//typedef bg::model::ring<pointRT> ringRT;
 
 typedef std::pair<cv::Point2f, unsigned> valueCV;
 typedef std::pair<pointRT, unsigned> valueRT;
@@ -48,9 +47,6 @@ public:
 
     void updateMatcher(cv::Mat &localImage);
 
-//    void updateSimilarityMap(cv::Mat &localImage, cv::Mat &globalImage);
-//    Pose computeMeanShift(int x, int y);
-
 private:
 
     bool checkTransformation(std::vector< cv::DMatch >& good_matches, std::vector<unsigned int>& nearbyPoints);
@@ -66,13 +62,6 @@ private:
     cv::FlannBasedMatcher localMatcher;
 
     Rtree* rtree;
-
-//    vector< vector<cv::FlannBasedMatcher*> > hMatcher;
-//    vector< vector< vector<unsigned int>* > > idKeypoints;
-//    cv::Mat likelihood;
-
-//    bool improvedSimilarityMap;
-//    cv::Mat similarityMap;
 };
 
 #endif // SIFTHEURISTIC_H

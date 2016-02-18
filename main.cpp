@@ -223,7 +223,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
                ht->strategy == MEAN_SHIFT ||
                ht->strategy == SIFT_MCL ||
                ht->strategy == ENTROPY ||
-               ht->strategy==MUTUAL_INFORMATION)
+               ht->strategy == MUTUAL_INFORMATION)
             {
                 if(argc>=p+1) {
 

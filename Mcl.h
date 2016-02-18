@@ -33,6 +33,7 @@ class MCL
         ~MCL();
 
         bool run(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose &real);
+        bool initialRun(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose &real, double lastTotalElapsed);
         void writeErrorLogFile(double trueX, double trueY, double trueTh);
         void draw(int x_aux, int y_aux, int halfWindowSize);
         void restart(Pose &initial, string &lName);
@@ -63,6 +64,7 @@ class MCL
         cv::Mat binaryFrameMask;
 
         bool removeDuplicates;
+        bool starting;
 
         Timer timer;
 
