@@ -6,6 +6,8 @@
 #include <string.h>
 #include <cmath>
 #include <dirent.h>
+#include <algorithm>
+#include <GL/glut.h>
 
 vector<string> Utils::getListOfFiles(string dirname){
     vector<string> files;
@@ -240,15 +242,97 @@ double Utils::matchImages(cv::Mat& im_1, cv::Mat& im_2, int match_method, cv::In
     return result.at<double>(p);
 }
 
+
+/////////////////////////////////////////
+///// METHODS OF CLASS TRIGONOMETRY /////
+/////////////////////////////////////////
+
+Trigonometry::Trigonometry(double res):
+resolution(res)
+{
+    double numValues = 90.0/resolution;
+    values.resize(int(numValues)+1);
+
+    double step = DEG2RAD(resolution);
+
+    for(double i=0.0; i<=numValues; i+=1.0){
+        values[i] = std::sin(i*step);
+    }
+}
+
+double Trigonometry::degSin(double a)
+{
+    while(a > 180.0)
+        a -= 360.0;
+    while(a <= -180.0)
+        a += 360.0;
+
+    //    sin(x) = sin(pi - x), to map from quadrant II to I
+    //    sin(x) = - sin (pi + x), to map from quadrant III to I
+    //    sin(-x) = - sin(x), to map from quadrant IV to I
+
+    if(a >= 0.0){
+        if( a <= 90.0){
+            // quadrant I [0,90]
+            return values[a/resolution];
+        }else{
+            // quadrant II (90,180]
+            return values[(180.0-a)/resolution];
+        }
+    }else{
+        if(a < -90.0){
+            // quadrant III (-180,-90)
+            return -values[(180.0+a)/resolution];
+        }else{
+            // quadrant IV [-90,0)
+            return -values[(-a)/resolution];
+        }
+    }
+}
+
+double Trigonometry::degCos(double a)
+{
+    return Trigonometry::degSin(a+90.0);
+}
+
+Pose Trigonometry::getRelativePose(const Pose& p1, const Pose& p2)
+{
+    double cosine = cos(DEG2RAD(p1.theta));
+    double sine = sin(DEG2RAD(p1.theta));
+    Pose rel;
+    rel.x = cosine*(p2.x-p1.x) - sine*(p2.y-p1.y);
+    rel.y = sine*(p2.x-p1.x) + cosine*(p2.y-p1.y);
+    rel.theta = p2.theta - p1.theta;
+    return rel;
+}
+
+Pose Trigonometry::addRelativePose(const Pose& p1, const Pose& rel)
+{
+    double cosine = cos(DEG2RAD(p1.theta));
+    double sine = sin(DEG2RAD(p1.theta));
+    Pose pos;
+    pos.x = p1.x + cosine*(rel.x) - sine*(rel.y);
+    pos.y = p1.y + sine*(rel.x) + cosine*(rel.y);
+    pos.theta = p1.theta + rel.theta;
+    return pos;
+}
+
+void Trigonometry::checkValues()
+{
+    cout << "Start checking" << endl;
+    for(double a=0.0; a<=360.0; a += resolution)
+    {
+        if(fabs(std::sin(DEG2RAD(a))-Trigonometry::degSin(a)) > 1e-2)
+            cout << "A:" << a << " sin " << std::sin(DEG2RAD(a)) << ' ' << Trigonometry::degSin(a) << endl;
+        if(fabs(std::cos(DEG2RAD(a))-Trigonometry::degCos(a)) > 1e-2)
+            cout << "A:" << a << " cos " << std::cos(DEG2RAD(a)) << ' ' << Trigonometry::degCos(a) << endl;
+    }
+    cout << "Complete" << endl;
+}
+
 /////////////////////////////////
 ///// METHODS OF CLASS POSE /////
 /////////////////////////////////
-
-Pose3d::Pose3d()
-{
-    x=y=z=roll=pitch=yaw=0.0;
-}
-
 
 Pose::Pose(){
     x=y=theta=0.0;
@@ -257,6 +341,44 @@ Pose::Pose(){
 
 Pose::Pose(double a, double b, bool c){
     x=a; y=b; theta=0.0; up=c;
+}
+
+Pose& Pose::operator+=(const Pose& p)
+{
+    this->x += p.x;
+    this->y += p.y;
+    this->theta += p.theta;
+    while(this->theta > 180.0)
+        this->theta -= 360.0;
+    while(this->theta < -180.0)
+        this->theta += 360.0;
+    return *this;
+}
+
+Pose Pose::operator+(const Pose& p)
+{
+    Pose pose = *this;
+    pose += p;
+    return pose;
+}
+
+Pose& Pose::operator-=(const Pose& p)
+{
+    this->x -= p.x;
+    this->y -= p.y;
+    this->theta -= p.theta;
+    while(this->theta > 180.0)
+        this->theta -= 360.0;
+    while(this->theta < -180.0)
+        this->theta += 360.0;
+    return *this;
+}
+
+Pose Pose::operator-(const Pose& p)
+{
+    Pose pose = *this;
+    pose -= p;
+    return pose;
 }
 
 Pose::Pose(double a, double b, double c){
@@ -268,6 +390,17 @@ ostream& operator<<(ostream& os, const Pose& p)
     os << "(" << p.x << ',' << p.y << ',' << p.theta << ")";
     return os;
 }
+
+///////////////////////////////////
+///// METHODS OF CLASS POSE3D /////
+///////////////////////////////////
+
+Pose3d::Pose3d()
+{
+    x=y=z=roll=pitch=yaw=0.0;
+}
+
+
 
 ////////////////////////////////////
 ///// METHODS OF CLASS LOGFILE /////
@@ -398,4 +531,91 @@ float Timer::getLapTime()
            ((float)tnow.tv_usec - (float)tlapstart.tv_usec)/1000000.0;
 }
 
+///////////////////////////////////
+///// METHODS OF CLASS COLORS /////
+///////////////////////////////////
 
+void Colors::setHSVColor(double i)
+{
+    i = i*2.0 - 1.0; // to let between [-1,1]
+    glColor3d(red(i),green(i),blue(i));
+}
+
+void Colors::setColor(int i)
+{
+    int id = i%16;
+//    cout << "COLOR:" << id << endl;
+
+    switch(id){
+        case 0:
+            glColor3ub(0,0,0); // Black
+            break;
+        case 1:
+            glColor3ub(225,225,225); // White
+            break;
+        case 2:
+            glColor3ub(255,0,0); // Red
+            break;
+        case 3:
+            glColor3ub(0,255,0); // Lime
+            break;
+        case 4:
+            glColor3ub(0,0,255); // Blue
+            break;
+        case 5:
+            glColor3ub(255,255,0); // Yellow
+            break;
+        case 6:
+            glColor3ub(0,255,255); // Cyan
+            break;
+        case 7:
+            glColor3ub(255,0,255); // Magenta
+            break;
+        case 8:
+            glColor3ub(192,192,192); // Silver
+            break;
+        case 9:
+            glColor3ub(128,128,128); // Gray
+            break;
+        case 10:
+            glColor3ub(128,0,0); // Maroon
+            break;
+        case 11:
+            glColor3ub(128,128,0); // Olive
+            break;
+        case 12:
+            glColor3ub(0,128,0); // Green
+            break;
+        case 13:
+            glColor3ub(128,0,128); // Purple
+            break;
+        case 14:
+            glColor3ub(0,128,128); // Teal
+            break;
+        case 15:
+            glColor3ub(0,0,128); // Navy
+            break;
+    }
+}
+
+double Colors::interpolate( double val, double y0, double x0, double y1, double x1 ) {
+    return (val-x0)*(y1-y0)/(x1-x0) + y0;
+}
+
+double Colors::base( double val ) {
+    if ( val <= -0.75 ) return 0;
+    else if ( val <= -0.25 ) return interpolate( val, 0.0, -0.75, 1.0, -0.25 );
+    else if ( val <= 0.25 ) return 1.0;
+    else if ( val <= 0.75 ) return interpolate( val, 1.0, 0.25, 0.0, 0.75 );
+    else return 0.0;
+}
+
+double Colors::red( double gray ) {
+    return base( gray - 0.5 );
+}
+double Colors::green( double gray ) {
+    return base( gray );
+}
+double Colors::blue( double gray ) {
+    return base( gray + 0.5 );
+}

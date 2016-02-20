@@ -143,7 +143,7 @@ UnscentedColorHeuristic::UnscentedColorHeuristic(STRATEGY s, int id, int cd, dou
     baselineColors.resize(45);
     delta=10;
     deltax = 40;
-    deltay = 40;
+    deltay = 30;
 }
 
 double UnscentedColorHeuristic::calculateValue(int x, int y, Pose p, cv::Mat *image, cv::Mat *map)

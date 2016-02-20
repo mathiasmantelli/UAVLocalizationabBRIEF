@@ -13,6 +13,12 @@
 #include "MeanShiftHeuristic.h"
 #include "SiftHeuristic.h"
 #include "BriefHeuristic.h"
+#include "CorrelativeSM.h"
+#include "Utils.h"
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/registration/icp.h>
 
 int selectMapID(int colorDiff);
 
@@ -38,6 +44,7 @@ private:
     pair<Pose, bool> findOdometry(cv::Mat &prevImage, cv::Mat &curImage);
     pair<Pose, bool> findOdometryUsingFeatures(cv::Mat &prevImage, cv::Mat &curImage, double cT=0.04);
     pair<Pose,bool> findOdometryUsingICP(cv::Mat& prevImage, cv::Mat& curImage);
+    pair<Pose, bool> findOdometryUsingCorrelativeSM(cv::Mat& prevImage, cv::Mat& curImage);
 
     void drawMatchedImages(cv::Mat& prevImage, cv::Mat& curImage, const cv::Mat& warp_matrix, const int warp_mode = cv::MOTION_EUCLIDEAN);
 

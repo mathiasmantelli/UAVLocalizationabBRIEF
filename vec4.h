@@ -18,7 +18,7 @@ using std::numeric_limits;
 #include "vec3.h"
 //#include <QtGLWidget>
 
-#define printme( e ) { cout << #e << " = " << ( e ) << "\n"; } 
+//#define printme( e ) { cout << #e << " = " << ( e ) << "\n"; }
 
 #define FLOAT_MAX 99999.0f
 #define FLOAT_MIN -99999.0f

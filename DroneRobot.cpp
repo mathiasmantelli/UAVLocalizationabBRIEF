@@ -12,10 +12,6 @@
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/xfeatures2d/nonfree.hpp"
 
-//#include <pcl/io/pcd_io.h>
-//#include <pcl/point_types.h>
-//#include <pcl/registration/icp.h>
-
 DroneRobot::DroneRobot()
 {
 
@@ -668,8 +664,9 @@ void DroneRobot::run()
 //            cv::waitKey(0);
         }else{
 //            odometry_ = findOdometry(prevMap,currentMap);
-//            pair<Pose,bool> od = findOdometryUsingFeatures(prevMap,currentMap);
-            pair<Pose,bool> od = findOdometry(prevMap,currentMap);
+
+            pair<Pose,bool> od = findOdometryUsingCorrelativeSM(prevMap,currentMap);
+//            pair<Pose,bool> od = findOdometry(prevMap,currentMap);
             odom_reliable = od.second;
             if(odom_reliable)
                 odometry_ = od.first;
@@ -1278,6 +1275,7 @@ pair<Pose,bool> DroneRobot::findOdometry(cv::Mat& prevImage, cv::Mat& curImage)
     double cT=0.04;
 //    while(odom.second==false && cT<0.06){
         odom = findOdometryUsingFeatures(prevImage, curImage, cT);
+//        odom = findOdometryUsingICP(prevImage, curImage);
 //        cT += 0.01;
 //    }
 
@@ -1295,47 +1293,263 @@ pair<Pose,bool> DroneRobot::findOdometry(cv::Mat& prevImage, cv::Mat& curImage)
 
 pair<Pose,bool> DroneRobot::findOdometryUsingICP(cv::Mat& prevImage, cv::Mat& curImage)
 {
+    cv::Mat edges_prev, edges_cur;
 
+    // Convert images to gray scale;
+    cvtColor(prevImage, edges_prev, CV_BGR2GRAY);
+    cvtColor(curImage, edges_cur, CV_BGR2GRAY);
 
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in (new pcl::PointCloud<pcl::PointXYZ>);
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZ>);
+    blur( edges_prev, edges_prev, cv::Size(21,21) );
+    blur( edges_prev, edges_prev, cv::Size(21,21) );
+    blur( edges_cur, edges_cur, cv::Size(21,21) );
+    blur( edges_cur, edges_cur, cv::Size(21,21) );
 
-//    // Fill in the CloudIn data
-//    cloud_in->width    = set1.size();
-//    cloud_in->height   = 1;
-//    cloud_in->is_dense = false;
-//    cloud_in->points.resize (cloud_in->width * cloud_in->height);
-//    for (size_t i = 0; i < cloud_in->points.size (); ++i)
-//    {
-//      cloud_in->points[i].x = set1[i].x;
-//      cloud_in->points[i].y = set1[i].y;
-//      cloud_in->points[i].z = 0;
+    cv::resize(edges_prev,edges_prev,cv::Size(0,0),0.5,0.5);
+    cv::resize(edges_cur,edges_cur,cv::Size(0,0),0.5,0.5);
+
+    cv::Canny(edges_cur,edges_cur,5000,5000,7);
+    cv::Canny(edges_prev,edges_prev,5000,5000,7);
+//    imshow("Canny",canny_img_2);
+//    cv::waitKey(0);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_prev (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cur (new pcl::PointCloud<pcl::PointXYZ>);
+
+    int minX, minY, maxX, maxY;
+    minX = minY = 100000000;
+    maxX = maxY = -111111111;
+
+    // Extract edge pixels
+    for(int x=0;x<edges_prev.cols; ++x){
+        for(int y=0;y<edges_prev.rows; ++y){
+            float color = edges_prev.at<float>(y,x);
+            if(color>0){
+                pcl::PointXYZ p;
+                p.x = x;
+                p.y = y;
+                p.z = 0;
+                cloud_prev->points.push_back(p);
+
+                if(x<minX) minX=x;
+                if(x>maxX) maxX=x;
+                if(y<minY) minY=y;
+                if(y>maxY) maxY=y;
+            }
+        }
+    }
+    cloud_prev->width    = cloud_prev->points.size();
+    cloud_prev->height   = 1;
+    cloud_prev->is_dense = false;
+
+    cout << "NUM " << cloud_prev->width
+         << " minX:" << minX << " maxX:" << maxX
+         << " minY:" << minY << " maxY:" << maxY << endl;
+
+    minX = minY = 100000000;
+    maxX = maxY = -111111111;
+    for(int x=0;x<edges_cur.cols; ++x){
+        for(int y=0;y<edges_cur.rows; ++y){
+            float color = edges_cur.at<float>(y,x);
+            if(color>0){
+                pcl::PointXYZ p;
+                p.x = x;
+                p.y = y;
+                p.z = 0;
+                cloud_cur->points.push_back(p);
+
+                if(x<minX) minX=x;
+                if(x>maxX) maxX=x;
+                if(y<minY) minY=y;
+                if(y>maxY) maxY=y;
+            }
+        }
+    }
+    cloud_cur->width    = cloud_cur->points.size();
+    cloud_cur->height   = 1;
+    cloud_cur->is_dense = false;
+
+    cout << "NUM " << cloud_prev->width
+         << " minX:" << minX << " maxX:" << maxX
+         << " minY:" << minY << " maxY:" << maxY << endl;
+
+    pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+    icp.setMaximumIterations(100);
+    //icp.setRANSACIterations(3);
+//    icp.setRANSACOutlierRejectionThreshold(0.3);
+//    icp.setMaxCorrespondenceDistance(100000.0);
+    icp.setTransformationEpsilon(0.000001);
+    icp.setEuclideanFitnessEpsilon(0.000001);
+
+    cout << "Max correspondence Distance: " << icp.getMaxCorrespondenceDistance()
+         << " Rejecttion Threshold: " << icp.getRANSACOutlierRejectionThreshold()
+         << "EuclideanFitnessEpsilon: " << icp.getEuclideanFitnessEpsilon() << endl;
+    //icp.setEuclideanFitnessEpsilon(0.00001);
+
+    std::cout << "ICP:" << icp.getMaximumIterations() << ' ' << icp.getRANSACIterations() << endl;
+    icp.setInputTarget(cloud_prev);
+    icp.setInputCloud(cloud_cur);
+
+    pcl::PointCloud<pcl::PointXYZ> Final;
+    icp.align(Final);
+
+    std::cout << "has converged:" << icp.hasConverged() << " score: " << icp.getFitnessScore() << std::endl;
+    std::cout << icp.getFinalTransformation() << std::endl;
+
+    cv::Vec3b green(0,100,0);
+    cv::Vec3b red(0,0,100);
+
+    cv::Mat edges_final(edges_prev.rows,edges_prev.cols,CV_8UC3,cv::Scalar(0,0,0));
+
+    edges_final=edges_prev;
+    //    cvtColor(edges_final, edges_final, CV_GRAY2BGR);
+
+    minX = minY = 100000000;
+    maxX = maxY = -111111111;
+
+    for(int p=0;p<Final.points.size(); ++p){
+        int x=(Final.points[p].x>=floor(Final.points[p].x)+0.5?Final.points[p].x+1:Final.points[p].x);
+        int y=(Final.points[p].y>=floor(Final.points[p].y)+0.5?Final.points[p].y+1:Final.points[p].y);
+        if(x>=0 && y>=0 && x<edges_final.cols && y < edges_final.rows){
+            edges_final.at<float>(y,x) = 0.5;
+        }
+
+        if(x<minX) minX=x;
+        if(x>maxX) maxX=x;
+        if(y<minY) minY=y;
+        if(y>maxY) maxY=y;
+    }
+    cout << "NUM " << Final.width
+         << " minX:" << minX << " maxX:" << maxX
+         << " minY:" << minY << " maxY:" << maxY << endl;
+
+//    minX = minY = 100000000;
+//    maxX = maxY = -111111111;
+
+//    for(int p=0;p<cloud_prev->points.size(); ++p){
+//        int x=cloud_prev->points[p].x;
+//        int y=cloud_prev->points[p].y;
+//        if(x>=0 && y>=0 && x < edges_final.cols && y < edges_final.rows){
+//            edges_final.at<cv::Vec3b>(y,x) = red;
+//            edges_final.at<float>(y,x) = 0.5;
+
+//        }
+
+//        if(x<minX) minX=x;
+//        if(x>maxX) maxX=x;
+//        if(y<minY) minY=y;
+//        if(y>maxY) maxY=y;
 //    }
 
-//    // Fill in the CloudOut data
-//    cloud_out->width    = set2.size();
-//    cloud_out->height   = 1;
-//    cloud_out->is_dense = false;
-//    cloud_out->points.resize (cloud_out->width * cloud_out->height);
-//    for (size_t i = 0; i < cloud_out->points.size (); ++i)
-//    {
-//      cloud_out->points[i].x = set2[i].x;
-//      cloud_out->points[i].y = set2[i].y;
-//      cloud_out->points[i].z = 0;
-//    }
+//    cout << "NUM " << cloud_prev->width
+//         << " minX:" << minX << " maxX:" << maxX
+//         << " minY:" << minY << " maxY:" << maxY << endl;
 
-//    pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-//    icp.setInputCloud(cloud_in);
-//    icp.setInputTarget(cloud_out);
-//    pcl::PointCloud<pcl::PointXYZ> Final;
-//    icp.align(Final);
-//    double score = icp.getFitnessScore();
-////    std::cout << "has converged:" << icp.hasConverged() << " score: " << score << std::endl;
-////    std::cout << icp.getFinalTransformation() << std::endl;
+    imshow("ICP",edges_final);
+    imshow("PREV",edges_prev);
+    imshow("CUR",edges_cur);
+    cv::waitKey(0);
 
+    pair<Pose,bool> odom;
+    odom.second = true;
 //    return score;
 
 }
+
+
+pair<Pose, bool> DroneRobot::findOdometryUsingCorrelativeSM(cv::Mat& prevImage, cv::Mat& curImage){
+    cv::Mat edges_prev, edges_cur;
+
+    // Convert images to gray scale;
+    cvtColor(prevImage, edges_prev, CV_BGR2GRAY);
+    cvtColor(curImage, edges_cur, CV_BGR2GRAY);
+
+    blur( edges_prev, edges_prev, cv::Size(21,21) );
+    blur( edges_prev, edges_prev, cv::Size(21,21) );
+    blur( edges_cur, edges_cur, cv::Size(21,21) );
+    blur( edges_cur, edges_cur, cv::Size(21,21) );
+
+    cv::resize(edges_prev,edges_prev,cv::Size(0,0),0.5,0.5);
+    cv::resize(edges_cur,edges_cur,cv::Size(0,0),0.5,0.5);
+
+    cv::Canny(edges_cur,edges_cur,5000,5000,7);
+    cv::Canny(edges_prev,edges_prev,5000,5000,7);
+//    imshow("Canny",canny_img_2);
+//    cv::waitKey(0);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_prev (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cur (new pcl::PointCloud<pcl::PointXYZ>);
+
+
+    int minX, minY, maxX, maxY;
+    minX = minY = 100000000;
+    maxX = maxY = -111111111;
+
+    // Extract edge pixels
+    for(int x=0;x<edges_prev.cols; ++x){
+        for(int y=0;y<edges_prev.rows; ++y){
+            float color = edges_prev.at<float>(y,x);
+            if(color>0){
+                pcl::PointXYZ p;
+                p.x = x;
+                p.y = y;
+                p.z = 0;
+                cloud_prev->points.push_back(p);
+
+                if(x<minX) minX=x;
+                if(x>maxX) maxX=x;
+                if(y<minY) minY=y;
+                if(y>maxY) maxY=y;
+            }
+        }
+    }
+    cloud_prev->width    = cloud_prev->points.size();
+    cloud_prev->height   = 1;
+    cloud_prev->is_dense = false;
+
+    cout << "NUM " << cloud_prev->width
+         << " minX:" << minX << " maxX:" << maxX
+         << " minY:" << minY << " maxY:" << maxY << endl;
+
+    minX = minY = 100000000;
+    maxX = maxY = -111111111;
+    for(int x=0;x<edges_cur.cols; ++x){
+        for(int y=0;y<edges_cur.rows; ++y){
+            float color = edges_cur.at<float>(y,x);
+            if(color>0){
+                pcl::PointXYZ p;
+                p.x = x;
+                p.y = y;
+                p.z = 0;
+                cloud_cur->points.push_back(p);
+
+                if(x<minX) minX=x;
+                if(x>maxX) maxX=x;
+                if(y<minY) minY=y;
+                if(y>maxY) maxY=y;
+            }
+        }
+    }
+    cloud_cur->width    = cloud_cur->points.size();
+    cloud_cur->height   = 1;
+    cloud_cur->is_dense = false;
+
+    cout << "NUM " << cloud_prev->width
+         << " minX:" << minX << " maxX:" << maxX
+         << " minY:" << minY << " maxY:" << maxY << endl;
+
+    CorrelativeScanMatching csm(prevImage.rows, prevImage.cols);
+    Pose outPose;
+    Matrix3d outCov;
+    csm.compute(cloud_prev, cloud_cur, outPose, outCov);
+
+    cout<<"X: "<<outPose.x<<" Y: "<<outPose.y<<"Th: "<< outPose.theta << endl;
+    pair<Pose,bool> p;
+    p.first = outPose;
+    p.second = true;
+    return p;
+
+}
+
 
 pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(cv::Mat& prevImage, cv::Mat& curImage, double cT)
 {
@@ -1345,14 +1559,14 @@ pair<Pose,bool> DroneRobot::findOdometryUsingFeatures(cv::Mat& prevImage, cv::Ma
     cvtColor(prevImage, img_2, CV_BGR2GRAY);
     cvtColor(curImage, img_1, CV_BGR2GRAY);
 
-    blur( img_2, img_2, cv::Size(21,21) );
+//    blur( img_2, img_2, cv::Size(21,21) );
 //    blur( img_2, img_2, cv::Size(21,21) );
 
 
-    cv::Mat canny_img_2;
-    cv::Canny(img_2,canny_img_2,5000,5000,7);
-    imshow("Canny",canny_img_2);
-    cv::waitKey(0);
+//    cv::Mat canny_img_2;
+//    cv::Canny(img_2,canny_img_2,5000,5000,7);
+//    imshow("Canny",canny_img_2);
+//    cv::waitKey(0);
 
     //-- Step 1 & 2: Detect the keypoints using Detector & Calculate descriptors (feature vectors)
 

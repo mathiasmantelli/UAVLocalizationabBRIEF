@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <list>
 using namespace std;
 
 #include<opencv2/core/core.hpp>
@@ -18,6 +19,8 @@ using namespace std;
 #define DEG2RAD(a) ((a) * M_PI / 180.0)
 #define RAD2DEG(a) ((a) * 180.0 / M_PI)
 
+//enum Direction {STOP, FRONT, BACK, LEFT, RIGHT, RESTART, MINUS_LEFT, MINUS_RIGHT, SPEED_UP, SPEED_DOWN};
+
 class Pose3d
 {
 public:
@@ -28,15 +31,20 @@ public:
 };
 
 class Pose{
-    public:
-        Pose();
-        Pose(double a, double b, double c);
-        Pose(double a, double b, bool c);
+public:
+    Pose();
+    Pose(double a, double b, bool c);
+    Pose(double a, double b, double c);
 
-        friend ostream& operator<<(ostream& os, const Pose& p);
+    friend ostream& operator<<(ostream& os, const Pose& p);
 
-        double x, y, theta;
-        bool up;
+    Pose& operator+=(const Pose& p);
+    Pose operator+(const Pose& p);
+    Pose& operator-=(const Pose& p);
+    Pose operator-(const Pose& p);
+
+    double x, y, theta;
+    bool up;
 };
 
 enum LogMode { NONE, RECORDING, PLAYBACK};
@@ -59,6 +67,19 @@ class LogFile
         string filename;
 };
 
+class Trigonometry
+{
+public:
+    Trigonometry(double res);
+    double degCos(double a);
+    double degSin(double a);
+    void checkValues();
+    static Pose getRelativePose(const Pose &p1, const Pose &p2);
+    static Pose addRelativePose(const Pose &p1, const Pose &rel);
+private:
+    vector<double> values;
+    double resolution;
+};
 
 class Timer{
     public:
@@ -88,5 +109,18 @@ public:
     static cv::Point templateMatching(cv::Mat& image, cv::Mat& templ, cv::Mat& result, int match_method, cv::InputArray &templ_mask=cv::noArray());
 
 };
+
+class Colors{
+public:
+    static void setColor(int i);
+    static void setHSVColor(double i);
+private:
+    static double interpolate( double val, double y0, double x0, double y1, double x1 );
+    static double base( double val );
+    static double red( double gray );
+    static double green( double gray );
+    static double blue( double gray );
+};
+
 
 #endif // UTILS_H
