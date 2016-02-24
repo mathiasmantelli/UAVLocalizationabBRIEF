@@ -137,13 +137,17 @@ void ColorHeuristic::setTestedColor(int x, int y, cv::Mat *image) // receives rg
 //    }
 }
 
-UnscentedColorHeuristic::UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar):
+UnscentedColorHeuristic::UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar, int uNP):
     ColorHeuristic(s,id,cd,limiar)
 {
-    baselineColors.resize(45);
+    numberPoints = uNP;
+    baselineColors.resize(numberPoints);
     delta=10;
     deltax = 40;
     deltay = 30;
+
+    points.resize(numberPoints);
+    marginUnscented = 10;
 }
 
 double UnscentedColorHeuristic::calculateValue(int x, int y, Pose p, cv::Mat *image, cv::Mat *map)
@@ -151,49 +155,28 @@ double UnscentedColorHeuristic::calculateValue(int x, int y, Pose p, cv::Mat *im
 
     int i,j;
     int auxX, auxY;
-    int cont = 0;
+
     vector<double> vals;
 
-//    float theta = p.theta*-1-1.5708;
+    float theta = p.theta*(-1)-1.5708;
 
-//    cv::Mat rot = (cv::Mat_<double>(2,2) << cos(theta), -sin(theta), sin(theta), cos(theta));
-//    cv::Point trans = cv::Point(0, 0);
+    int xPad = width/2;
+    int yPad = height/2;
 
-    for(int cx = -1; cx <=1; cx++){
-//        cout<<"TESTE"<<endl;
-        for(int cy = -1; cy <=1; cy++){
+    cv::Point firstPoint;
+    for(int i = 0; i < points.size(); i++){
+         firstPoint = cv::Point(((points[i].x-xPad)*cos(theta)+(points[i].y-yPad)*sin(theta))+p.x,
+                                         ((points[i].x-xPad)*-sin(theta)+(points[i].y-yPad)*cos(theta))+p.y);
+//         cout<<"firstPoint.x:"<<firstPoint.x<<endl;
+//         cout<<"firstPoint.y:"<<firstPoint.y<<endl;
 
-            auxX=x+(cx*deltax*3*cos(p.theta+M_PI/2));
-            auxY=y+(cy*deltay*3*sin(p.theta+M_PI/2));
-
-//            cv::Point result = transform_rotation(cv::Point(auxX, auxY), rot, trans);
-            i = auxX;
-            j = auxY;
-
-            vals.push_back(computeDiffColor(i,j,cont,image,map));
-            cont++;
-            i = auxX+deltax*cos(p.theta);
-            j=auxY+deltay*sin(p.theta);
-
-            vals.push_back(computeDiffColor(i,j,cont,image,map));
-            cont++;
-            i = auxX+deltax*cos(p.theta+M_PI/2);
-            j=auxY+deltay*sin(p.theta+M_PI/2);
-
-            vals.push_back(computeDiffColor(i,j,cont,image,map));
-            cont++;
-            i = auxX+deltax*cos(p.theta+M_PI);
-            j=auxY+deltay*sin(p.theta+M_PI);
-
-            vals.push_back(computeDiffColor(i,j,cont,image,map));
-            cont++;
-            i = auxX+deltax*cos(p.theta+3*M_PI/2);
-            j=auxY+deltay*sin(p.theta+3*M_PI/2);
-
-            vals.push_back(computeDiffColor(i,j,cont,image,map));
-            cont++;
+        if(firstPoint.x < 0 || firstPoint.x >= image->cols || firstPoint.y < 0 || firstPoint.y >= image->rows){
+            vals.push_back(HEURISTIC_UNDEFINED);
+        }else{
+            vals.push_back(computeDiffColor(firstPoint.x,firstPoint.y,i,image,map));
         }
     }
+
     double mean=0.0;
     int wrong = 0;
     for(int k=0;k<vals.size();k++)
@@ -221,9 +204,21 @@ void UnscentedColorHeuristic::setBaselineColors(int x, int y, cv::Mat *image)
 {
     int i,j;
     int auxX, auxY;
-    int cont = 0;
+
     double theta = M_PI/2;
 
+    width = image->cols;
+    height = image->rows;
+
+    cv::RNG rng;
+    //generating random pairs
+    for(int i = 0; i < numberPoints; i++){
+        points[i] = cv::Point((int)rng.uniform(marginUnscented, image->cols-marginUnscented-1), (int)rng.uniform(marginUnscented,image->rows-marginUnscented-1));
+        baselineColors[i] = getValuefromPixel(points[i].x,points[i].y,image);
+
+    }
+
+    /*
     for(int cx = -1; cx <= 1; cx++){
         for(int cy = -1; cy <= 1; cy++){
             auxX=x+(cx*deltax*3);
@@ -250,7 +245,7 @@ void UnscentedColorHeuristic::setBaselineColors(int x, int y, cv::Mat *image)
             cont++;
         }
     }
-    /*
+
     // get color as double values
     i=x;
     j=y;

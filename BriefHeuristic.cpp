@@ -6,6 +6,7 @@ BriefHeuristic::BriefHeuristic(STRATEGY s, int id, int cd, double l):Heuristic(s
     lowThreshold = 0.5;
     multiplierThreshold = 4;
     margin = 10;
+
 }
 
 void BriefHeuristic::printInfo(){
@@ -19,14 +20,17 @@ void BriefHeuristic::updateDroneDescriptor(cv::Mat& drone){
     //imshow("d", drone);
 
     if(pairs.size() < 1){
-        int halfMargin = margin/2;
-        cv::RNG rng;
-        for(int x=0;x<totalPairs;x++){
-            vector<cv::Point> pair;
-            pair.push_back(cv::Point((int)rng.uniform(halfMargin, drone.cols-halfMargin), (int)rng.uniform(halfMargin, drone.rows-halfMargin)));
-            pair.push_back(cv::Point((int)rng.uniform(halfMargin, drone.cols-halfMargin), (int)rng.uniform(halfMargin, drone.rows-halfMargin)));
+        for(int p=0; p<totalPairs; p++){
+            vector<cv::Point> pair(2);
             pairs.push_back(pair);
         }
+    }
+
+    int halfMargin = margin/2;
+    cv::RNG rng;
+    for(int x=0;x<totalPairs;x++){
+        pairs[x][0] = cv::Point((int)rng.uniform(halfMargin, drone.cols-halfMargin), (int)rng.uniform(halfMargin, drone.rows-halfMargin));
+        pairs[x][1] = cv::Point((int)rng.uniform(halfMargin, drone.cols-halfMargin), (int)rng.uniform(halfMargin, drone.rows-halfMargin));
     }
 
     vector<int> bin;
@@ -60,7 +64,8 @@ double BriefHeuristic::calculateValue2(Pose p, cv::Mat *map){
     int yPad = height/2;
     if(color_difference != INTENSITYC){
         for(int c=0;c<pairs.size();c++){
-            cv::Point point1 = cv::Point(((pairs[c][0].x-xPad)*cos(theta)+(pairs[c][0].y-yPad)*sin(theta))+p.x, ((pairs[c][0].x-xPad)*-sin(theta)+(pairs[c][0].y-yPad)*cos(theta))+p.y);
+            cv::Point point1 = cv::Point(((pairs[c][0].x-xPad)*cos(theta)+(pairs[c][0].y-yPad)*sin(theta))+p.x,
+                                        ((pairs[c][0].x-xPad)*-sin(theta)+(pairs[c][0].y-yPad)*cos(theta))+p.y);
             if(point1.x < 0 || point1.x >= map->cols || point1.y < 0 || point1.y >= map->rows){
                 bin.push_back(HEURISTIC_UNDEFINED_INT);
                 bin.push_back(HEURISTIC_UNDEFINED_INT);

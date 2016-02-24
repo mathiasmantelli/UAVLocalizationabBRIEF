@@ -191,6 +191,8 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     int h = globalMaps[0].rows;
     int w = globalMaps[0].cols;
 
+
+
     // Atualiza a região da janela
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
@@ -303,6 +305,13 @@ void MCL::draw(int x_aux, int y_aux, int halfWindowSize)
     glEnd();
     glLineWidth(1);
 
+
+    if(starting){
+        glutSwapBuffers();
+        glutPostRedisplay();
+        return;
+    }
+
     // Draw particles
     for(int p=0;p<particles.size();p++){
 
@@ -411,9 +420,9 @@ bool MCL::initialRun(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose 
          << " ratio:" << wElapsedTime/totalElapsedTime << endl;
 
 //    particleLog  <<  "elapsed time MCL: " << elapsedTime << endl;
-
-    if(wElapsedTime>1.0){
-        numParticles = (1.0-lastTotalElapsed)/(totalElapsedTime-lastTotalElapsed)*(numParticles/2) + numParticles/2;
+    float time_limit = 0.3333333;
+    if(wElapsedTime > time_limit ){
+        numParticles = (time_limit-lastTotalElapsed)/(totalElapsedTime-lastTotalElapsed)*(numParticles/2) + numParticles/2;
 
         particles.resize(numParticles);
         cout << "FINAL NUMPARTICLES " << numParticles << endl;
@@ -760,10 +769,11 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                 continue;
             }
 
-        double varColor = pow(4.0, 2.0); // normalized gaussian
+        double varUnscented = pow(1.5, 2.0); // normalized gaussian
+        double varColor = pow(0.5, 2.0); // normalized gaussian
         double varDensity = pow(1.0f,2.0); //10%
-        double varEntropy = pow(1.0f,2.0); //10%
-        double varMI = pow(1.0,2.0); //10%
+        double varEntropy = pow(0.1f,2.0); //10%
+        double varMI = pow(4.0,2.0); //10%
         double varMeanShift = pow(1.0,2.0); // 1 std dev
         double varHistogram = pow(.33, 2.0);
         double prob=1.0;
@@ -837,7 +847,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     if(diff!=HEURISTIC_UNDEFINED)
                         //prob *= 1.0/cosh(pow(diff,4.0));//(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
 
-                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varColor));
+                        prob *= 1.0/(sqrt(2*M_PI*varColor))*exp(-0.5*(pow(diff,2)/varUnscented));
                     else
                         prob *= 0.00000000000000000000000000000000000000000001;//1.0/(numParticles);
                     break;
@@ -848,7 +858,7 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varDensity))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varDensity));
 
-                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED || cachedMaps[l]->getHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
                         prob *= 1.0/numParticles;
                     break;
                 }
@@ -869,8 +879,8 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                     if(heuristicValues[l]!=HEURISTIC_UNDEFINED)
                         prob *= 1.0/(sqrt(2*M_PI*varEntropy))*exp(-0.5*(pow((cachedMaps[l]->getPureHeuristicValue(x,y)-heuristicValues[l]),2)/varEntropy));
 
-                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
-                        prob *= 1.0/numParticles;
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED || cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
+                        prob *= 0.000000000000000000000000001;
                     break;
                 }
                 case MUTUAL_INFORMATION:
@@ -887,11 +897,12 @@ void MCL::weighting(cv::Mat& z_robot, Pose &u)
                                     &binaryFrameMask,
                                     particles[i].p);
 
-                        prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(val,2)/varMI));
+                        prob *= 1.0/(sqrt(2*M_PI*varMI))*exp(-0.5*(pow(1-val,2)/varMI));
+                        //prob *= 1+val;
 
                     }
-                    if(heuristicValues[l]==HEURISTIC_UNDEFINED && cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
-                        prob *= 1.0/numParticles;
+                    if(heuristicValues[l]==HEURISTIC_UNDEFINED || cachedMaps[l]->getPureHeuristicValue(x,y)==HEURISTIC_UNDEFINED)
+                        prob *= 0.000000000000000000000000001;
                     break;
                 }
             case HISTOGRAM_MATCHING:

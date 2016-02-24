@@ -181,7 +181,8 @@ DroneRobot::DroneRobot(string& mapPath, string& trajectoryName, vector< heuristi
         else if(hT->strategy == UNSCENTED_COLOR)
         {
             // Create unscented color heuristic
-            heur = new UnscentedColorHeuristic(UNSCENTED_COLOR, id, hT->colorDifference, hT->threshold);
+
+            heur = new UnscentedColorHeuristic(UNSCENTED_COLOR, id, hT->colorDifference, hT->threshold,hT->unscentedNumberPoints);
         }
         else if(   hT->strategy == DENSITY
                 || hT->strategy == ENTROPY

@@ -258,7 +258,7 @@ double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, c
     std::map<std::pair<ID,ID>, double> jointPDF;
     std::map<std::pair<ID,ID>, double>::iterator it;
 
-    int size = 2*radius+1+2;
+    int size = 2*radius+1;
     //cv::Mat subImg = Utils::getRotatedROIFromImage(p,Point2f(size, size), image);
     // The subimage ranges
     int xini = x-radius;
@@ -281,7 +281,7 @@ double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, c
     cv::Mat subImg(image, rRange, cRange);
     cv::Point2f pt( subImg.cols/2.0f, subImg.rows/2.0f);
     cv::Mat r = cv::getRotationMatrix2D(pt, RAD2DEG(p.theta)+90.0, 1.0);
-    cv::warpAffine(subImg, subImg, r, cv::Size(size, size));
+    cv::warpAffine(subImg, subImg, r, subImg.size()); //cv::Size(size, size));
 
     // Get new boundaries for the patch extracted from the image
     int xiniROI = subImg.cols/2-radius;
@@ -297,10 +297,10 @@ double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, c
 
     // compute histogram
     int wF=xiniF;
-    for(int wROI = xiniROI; wROI<size; ++wROI, ++wF)
+    for(int wROI = xiniROI; wROI<xiniROI+size; ++wROI, ++wF)
     {
         int hF = yiniF;
-        for(int hROI = yiniROI; hROI<size; ++hROI)
+        for(int hROI = yiniROI; hROI<yiniROI+size; ++hROI)
         {
             // Check if there is an UNDEF value
             if(kernel[kpos]==0.0)
@@ -324,6 +324,11 @@ double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, c
             }else{
                 jointPDF[ndID] = kernel[kpos];
             }
+            if(std::isnan(jointPDF[ndID]))
+                cout << "Cagará " << jointPDF[ndID] << " ID:"
+                     << int((ndID.first)[0]) << ',' << int((ndID.second)[0]) << " ID_original:"
+                     << int(idImage[0]) << ',' << int(idFrame[0]) << "kernel:"
+                     << kernel[kpos] << endl;
 
             kpos++;
             hF++;
@@ -334,13 +339,20 @@ double MIHeuristic::calculateValue(int x, int y, cv::Mat &image, cv::Mat *map, c
     double jointEntropy = 0.0;
     for(it = jointPDF.begin(); it!= jointPDF.end(); ++it)
     {
+//        if(std::isnan(log2(it->second)))
+//           cout << "Cagará " << it->second << endl;
         jointEntropy -= it->second * log2(it->second);
     }
 
     // Denormalize the entropy values and compute mutual information
     // Normalization, trial one
     mi = ((observedEntropy+cashedEntropy)*maxEntropyValue-jointEntropy)/(2*maxEntropyValue);
-
+    if(std::isnan(jointEntropy))
+       cout << "Cagou jointEntropy" << endl;
+    if(std::isnan(observedEntropy))
+       cout << "Cagou observedEntropy" << endl;
+    if(std::isnan(cashedEntropy))
+       cout << "Cagou cashedEntropy" << endl;
     //return mutual information;
 //    cout << "MI: " << mi << endl;
     return mi;

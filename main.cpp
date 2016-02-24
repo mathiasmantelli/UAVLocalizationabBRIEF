@@ -284,7 +284,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
         }
         else if(!strncmp(argv[p], "-bp", 3) || !strncmp(argv[p], "-BP", 3))
         {
-            heuristicType* ht = heuristicTypes[0];
+            heuristicType* ht = heuristicTypes[heuristicTypes.size()-1];
             try {
                 ht->numberPairs = atoi(argv[p+1]);
             }
@@ -296,7 +296,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
         }
         else if(!strncmp(argv[p], "-blt", 4) || !strncmp(argv[p], "-BLT", 4))
         {
-            heuristicType* ht = heuristicTypes[0];
+            heuristicType* ht = heuristicTypes[heuristicTypes.size()-1];
             try {
                 ht->lowThreshold = atof(argv[p+1]);
             }
@@ -311,7 +311,7 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
         }
         else if(!strncmp(argv[p], "-bmt", 4) || !strncmp(argv[p], "-BMT", 4))
         {
-            heuristicType* ht = heuristicTypes[0];
+            heuristicType* ht = heuristicTypes[heuristicTypes.size()-1];
             try {
                 ht->multiplierThreshold = atof(argv[p+1]);
             }
@@ -321,15 +321,27 @@ bool config(int argc, char* argv[], vector< heuristicType* > &heuristicTypes, st
             }
             p++;
         }
-        else if(!strncmp(argv[p], "-bm", 4) || !strncmp(argv[p], "-BM", 4))
+        else if(!strncmp(argv[p], "-bm", 3) || !strncmp(argv[p], "-BM", 3))
         {
-            heuristicType* ht = heuristicTypes[0];
+            heuristicType* ht = heuristicTypes[heuristicTypes.size()-1];
             try {
                 ht->margin = atoi(argv[p+1]);
             }
             catch (const std::invalid_argument& ia) {
                 cerr << "Invalid argument: " << ia.what() << '\n';
                 return errorMessage(p+1, "Margin is a integer, example: -bmt 10\n");
+            }
+            p++;
+        }
+        else if(!strncmp(argv[p], "-unp", 4) || !strncmp(argv[p], "-UNP", 4))
+        {
+            heuristicType* ht = heuristicTypes[heuristicTypes.size()-1];
+            try {
+                ht->unscentedNumberPoints  = atoi(argv[p+1]);
+            }
+            catch (const std::invalid_argument& ia) {
+                cerr << "Invalid argument: " << ia.what() << '\n';
+                return errorMessage(p+1, "Number of Points is a integer, example: -np 100\n");
             }
             p++;
         }

@@ -8,6 +8,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/xfeatures2d.hpp"
+#include "cstdlib"
 
 #include "Utils.h"
 
@@ -25,6 +26,9 @@ public:
     // baseline color
     vec3 baselineColor;
     vec3 testedColor;
+    cv::Point teste;
+    int marginUnscented;
+
 protected:
     // Image density stuff
     CPUColorConverter convert;
@@ -35,7 +39,7 @@ protected:
 class UnscentedColorHeuristic: public ColorHeuristic
 {
 public:
-    UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar);
+    UnscentedColorHeuristic(STRATEGY s, int id, int cd, double limiar, int uNP);
 
     double calculateValue(int x, int y, Pose p, cv::Mat *image, cv::Mat *map=NULL);
 
@@ -49,7 +53,9 @@ public:
     int delta;
     int deltax;
     int deltay;
-
+    int height,width;
+    vector <cv::Point> points;
+    int numberPoints;
 private:
 
     double computeDiffColor(int x, int y, int whichPoint, cv::Mat *image, cv::Mat *map=NULL);

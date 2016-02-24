@@ -14,14 +14,17 @@ struct heuristicType{
     double threshold;
     COLOR_NAME color;
 
+
     //brief variables
     float lowThreshold;
     float multiplierThreshold;
     int numberPairs;
     int margin;
 
+    int unscentedNumberPoints;
+
     // constructor
-    heuristicType(STRATEGY s = DENSITY, int kt=KGAUSSIAN, double r=1.0, int cd=-1, double t=2.3, COLOR_NAME color=BLACK, float blt = -1, float bmt = -1, int bp = -1, int bm = -1) :
+    heuristicType(STRATEGY s = DENSITY, int kt=KGAUSSIAN, double r=1.0, int cd=-1, double t=2.3, COLOR_NAME color=BLACK, float blt = -1, float bmt = -1, int bp = -1, int bm = -1, int unp = 1) :
         strategy(s),
         kernelType(kt),
         radius(r),
@@ -31,7 +34,8 @@ struct heuristicType{
         lowThreshold(blt),
         multiplierThreshold(bmt),
         numberPairs(bp),
-        margin(bm)
+        margin(bm),
+        unscentedNumberPoints(unp)
     {}
 };
 
