@@ -37,13 +37,13 @@ MCL::MCL(vector<Heuristic*> &hVector, vector<MapGrid *> &cMaps, vector<cv::Mat> 
     globalMaps(gMaps)
 {
 //    numParticles = 70000;
-    numParticles = 500;
+    numParticles = 20000;
     resamplingThreshold = numParticles/8;
     lastOdometry.x=0.0;
     lastOdometry.y=0.0;
     lastOdometry.theta=0.0;
 
-    starting=true;
+    starting=false;
 
     particles.resize(numParticles);
 
@@ -420,7 +420,7 @@ bool MCL::initialRun(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose 
          << " ratio:" << wElapsedTime/totalElapsedTime << endl;
 
 //    particleLog  <<  "elapsed time MCL: " << elapsedTime << endl;
-    float time_limit = 0.3333333;
+    float time_limit = 0.33333333;
     if(wElapsedTime > time_limit ){
         numParticles = (time_limit-lastTotalElapsed)/(totalElapsedTime-lastTotalElapsed)*(numParticles/2) + numParticles/2;
 
@@ -489,8 +489,8 @@ bool MCL::initialRun(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose 
 
 bool MCL::run(Pose &u, bool is_u_reliable, cv::Mat &z, double time, Pose& real)
 {
-    if(starting)
-        initialRun(u,is_u_reliable,z,time,real,0.0);
+//    if(starting)
+//        initialRun(u,is_u_reliable,z,time,real,0.0);
 
 //    double delta = sqrt(pow(u.x-lastOdometry.x,2)+pow(u.y-lastOdometry.y,2));
 //    if(delta<1.0)
