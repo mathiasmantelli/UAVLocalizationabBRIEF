@@ -15,19 +15,19 @@ Where to paste what:
 After downloading everything, you have to create the following structure. The _italic itens_ you have to create by yourself:
 Datasets:
   ↳Arroio do Meio<br>
-    ↳Flight1<br>
-    ↳Flight2<br>
-    ↳Maps<br>
-    ↳_Output_<br>
-       ↳_globalmap_<br>
-    ↳_flight1.txt_<br>
-    ↳_flight2.txt_<br>
+    &nbsp;↳Flight1<br>
+    &nbsp;↳Flight2<br>
+    &nbsp;↳Maps<br>
+    &nbsp;↳_Output_<br>
+       &nbsp;&nbsp;↳_globalmap_<br>
+    &nbsp;↳_flight1.txt_<br>
+    &nbsp;↳_flight2.txt_<br>
   ↳Porto Alegre<br>
-    ↳Flight3<br>
-    ↳Maps<br>      
-    ↳_Output_<br>
-       ↳_globalmap_<br>  
-    ↳_flight1.txt_<br>
+    &nbsp;↳Flight3<br>
+    &nbsp;↳Maps<br>      
+    &nbsp;↳_Output_<br>
+       &nbsp;&nbsp;↳_globalmap_<br>  
+    &nbsp;↳_flight1.txt_<br>
     
 The "Flight*" folders contain all images from each trajectory; 
 The "Maps" folders contain the satellite images extracted from Google Earth. One of these maps must be called "globalmap.png", because that is the file that the framework looks for; 
