@@ -24,7 +24,7 @@ Datasets:<br>
   &emsp;&emsp;↳<i>flight2.txt</i><br>
   ↳Porto Alegre<br>
   &emsp;&emsp;↳Flight3<br>
-  &emsp;&emsp;↳Maps<br>      
+  &emsp;&emsp;↳Maps<br>
   &emsp;&emsp;↳<i>Output</i><br>
   &emsp;&emsp;&emsp;&emsp;↳<i>globalmap</i><br>
   &emsp;&emsp;↳<i>flight3.txt</i><br>
